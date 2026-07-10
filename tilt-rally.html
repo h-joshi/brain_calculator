@@ -13,13 +13,27 @@
       --lime: #dbff46;
       --orange: #ff6844;
       --line: rgba(244, 241, 223, .16);
+      --app-width: 100vw;
+      --app-height: 100svh;
     }
 
     * { box-sizing: border-box; }
 
-    html, body {
+    html {
       width: 100%;
       height: 100%;
+      margin: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: var(--ink);
+    }
+
+    body {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--app-width);
+      height: var(--app-height);
       margin: 0;
       overflow: hidden;
       overscroll-behavior: none;
@@ -32,7 +46,7 @@
     button, a { font: inherit; }
 
     #game {
-      position: fixed;
+      position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
@@ -40,7 +54,7 @@
     }
 
     .topbar {
-      position: fixed;
+      position: absolute;
       z-index: 3;
       top: max(12px, env(safe-area-inset-top));
       left: max(18px, env(safe-area-inset-left));
@@ -94,7 +108,7 @@
     }
 
     .home, .calibrate {
-      position: fixed;
+      position: absolute;
       z-index: 4;
       bottom: max(12px, env(safe-area-inset-bottom));
       min-height: 38px;
@@ -116,9 +130,10 @@
 
     .home { left: max(14px, env(safe-area-inset-left)); }
     .calibrate { right: max(14px, env(safe-area-inset-right)); cursor: pointer; }
+    .calibrate[hidden] { display: none; }
 
     .status {
-      position: fixed;
+      position: absolute;
       z-index: 3;
       bottom: max(17px, calc(env(safe-area-inset-bottom) + 5px));
       left: 50%;
@@ -134,12 +149,10 @@
     }
 
     .panel, .rotate {
-      position: fixed;
+      position: absolute;
       z-index: 10;
       inset: 0;
-      padding: max(24px, env(safe-area-inset-top)) max(26px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(26px, env(safe-area-inset-left));
-      display: grid;
-      place-items: center;
+      padding: max(18px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
       background:
         radial-gradient(circle at 20% 20%, rgba(219, 255, 70, .13), transparent 30%),
         radial-gradient(circle at 80% 85%, rgba(255, 104, 68, .13), transparent 32%),
@@ -148,8 +161,23 @@
 
     .panel[hidden], .rotate[hidden] { display: none; }
 
+    .panel {
+      display: flex;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
+
+    .rotate {
+      display: grid;
+      place-items: center;
+    }
+
     .panel-card {
       width: min(680px, 100%);
+      margin: auto;
       text-align: center;
     }
 
@@ -164,7 +192,8 @@
 
     .panel h1, .rotate h1 {
       margin: 0;
-      font-size: clamp(2.6rem, 10vw, 6.2rem);
+      font-size: clamp(2.25rem, min(10vw, 19vh), 6.2rem);
+      font-size: clamp(2.25rem, min(10vw, 19dvh), 6.2rem);
       line-height: .88;
       letter-spacing: -.065em;
     }
@@ -177,24 +206,69 @@
       line-height: 1.5;
     }
 
-    .start {
-      margin-top: 26px;
-      min-width: 190px;
-      min-height: 54px;
-      padding: 0 30px;
-      border: 0;
-      border-radius: 999px;
-      background: var(--lime);
-      color: var(--ink);
-      box-shadow: 0 6px 0 #7f9621;
+    .control-options {
+      width: min(600px, 100%);
+      margin: 24px auto 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .control-option {
+      min-height: 92px;
+      padding: 15px 18px;
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      background: rgba(244, 241, 223, .045);
+      color: var(--cream);
       cursor: pointer;
-      font-size: .86rem;
+      text-align: left;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .control-option:first-child {
+      border-color: rgba(219, 255, 70, .65);
+      background: rgba(219, 255, 70, .1);
+    }
+
+    .control-option:last-child {
+      border-color: rgba(255, 104, 68, .65);
+      background: rgba(255, 104, 68, .09);
+    }
+
+    .control-option strong,
+    .control-option span { display: block; }
+
+    .control-option strong {
+      color: var(--cream);
+      font-size: .82rem;
       font-weight: 950;
-      letter-spacing: .1em;
+      letter-spacing: .08em;
       text-transform: uppercase;
     }
 
-    .start:active { transform: translateY(3px); box-shadow: 0 3px 0 #7f9621; }
+    .control-option span {
+      margin-top: 7px;
+      color: rgba(244, 241, 223, .55);
+      font-size: .72rem;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
+    .control-option:focus-visible {
+      outline: 3px solid var(--cream);
+      outline-offset: 3px;
+    }
+
+    .control-option:active { transform: scale(.98); }
+
+    .control-error {
+      min-height: 1.3em;
+      margin: 12px auto 0 !important;
+      color: var(--orange) !important;
+      font-size: .76rem !important;
+      font-weight: 800;
+    }
 
     .controls-note {
       display: block;
@@ -243,6 +317,38 @@
       .rotate { display: grid; }
     }
 
+    @media (max-height: 500px) and (orientation: landscape) {
+      .panel {
+        padding-top: max(10px, env(safe-area-inset-top));
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+      }
+
+      .panel-card {
+        display: grid;
+        grid-template-columns: minmax(125px, .7fr) minmax(0, 1.3fr);
+        grid-template-areas:
+          "kicker copy"
+          "title controls"
+          "title error"
+          "title note";
+        column-gap: clamp(14px, 4vw, 34px);
+        align-items: center;
+      }
+
+      .kicker { grid-area: kicker; margin-bottom: 5px; }
+      .panel h1 { grid-area: title; }
+      .intro-copy { grid-area: copy; margin: 0 !important; line-height: 1.35 !important; }
+      .control-options { grid-area: controls; margin: 8px 0 0; }
+      .control-option { min-height: 72px; padding: 10px 14px; }
+      .control-option span { margin-top: 4px; }
+      .control-error { grid-area: error; margin: 6px 0 0 !important; }
+      .controls-note { grid-area: note; margin-top: 5px; }
+    }
+
+    @media (max-width: 560px) and (orientation: portrait) {
+      .control-options { grid-template-columns: 1fr; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .phone { animation: none; transform: rotate(90deg); }
     }
@@ -260,16 +366,26 @@
   </div>
 
   <a class="home" href="index.html">← Arcade</a>
-  <div class="status" id="status">Touch, tilt or use arrow keys</div>
-  <button class="calibrate" id="calibrate" type="button">Centre paddles</button>
+  <div class="status" id="status">Choose a control mode to start</div>
+  <button class="calibrate" id="calibrate" type="button" hidden>Centre tilt</button>
 
   <section class="panel" id="intro" aria-labelledby="game-title">
     <div class="panel-card">
       <p class="kicker">A one-phone reflex game</p>
       <h1 id="game-title">TILT.<br>CATCH. DING.</h1>
-      <p>Both paddles move together. Tilt your phone up and down to meet the incoming ball. Every catch adds to your rally.</p>
-      <button class="start" id="start" type="button">Start rally</button>
-      <span class="controls-note">Landscape required · Sound on · Touch also works</span>
+      <p class="intro-copy">Steer the ball with your phone's tilt, or drag both paddles with a finger. Every catch builds your rally.</p>
+      <div class="control-options" role="group" aria-label="Choose a control mode">
+        <button class="control-option" id="start-motion" type="button">
+          <strong>Play with tilt</strong>
+          <span>Steer the ball by tilting your phone up and down.</span>
+        </button>
+        <button class="control-option" id="start-touch" type="button">
+          <strong>Play with touch</strong>
+          <span>Drag a finger up and down anywhere on the game.</span>
+        </button>
+      </div>
+      <p class="control-error" id="control-error" role="status" aria-live="polite"></p>
+      <span class="controls-note">Landscape required · Sound on · Arrow keys work on desktop</span>
     </div>
   </section>
 
@@ -288,7 +404,9 @@
       const canvas = document.getElementById('game');
       const ctx = canvas.getContext('2d');
       const intro = document.getElementById('intro');
-      const startButton = document.getElementById('start');
+      const motionButton = document.getElementById('start-motion');
+      const touchButton = document.getElementById('start-touch');
+      const controlError = document.getElementById('control-error');
       const calibrateButton = document.getElementById('calibrate');
       const scoreNode = document.getElementById('score');
       const bestNode = document.getElementById('best');
@@ -299,8 +417,10 @@
         height: 0,
         dpr: 1,
         running: false,
+        controlMode: null,
         paddleY: .5,
         targetY: .5,
+        targetBallY: .5,
         baseline: null,
         orientationValue: null,
         lastTime: 0,
@@ -309,15 +429,22 @@
         flash: 0,
         shake: 0,
         audio: null,
+        orientationListening: false,
         ball: { x: .5, y: .5, vx: .42, vy: .16, radius: 10 },
       };
 
       bestNode.textContent = state.best;
 
       function resize() {
+        const viewport = window.visualViewport;
+        const viewportWidth = viewport ? viewport.width : window.innerWidth;
+        const viewportHeight = viewport ? viewport.height : window.innerHeight;
+
         state.dpr = Math.min(window.devicePixelRatio || 1, 2);
-        state.width = window.innerWidth;
-        state.height = window.innerHeight;
+        state.width = Math.max(1, Math.round(viewportWidth));
+        state.height = Math.max(1, Math.round(viewportHeight));
+        document.documentElement.style.setProperty('--app-width', state.width + 'px');
+        document.documentElement.style.setProperty('--app-height', state.height + 'px');
         canvas.width = Math.round(state.width * state.dpr);
         canvas.height = Math.round(state.height * state.dpr);
         canvas.style.width = state.width + 'px';
@@ -338,12 +465,13 @@
       }
 
       function onOrientation(event) {
+        if (state.controlMode !== 'motion') return;
         const value = orientationAxis(event);
         if (!Number.isFinite(value)) return;
         state.orientationValue = value;
         if (state.baseline === null) state.baseline = value;
         const delta = value - state.baseline;
-        state.targetY = clamp(.5 + delta / 42, .08, .92);
+        state.targetBallY = clamp(.5 + delta / 42, .08, .92);
       }
 
       function resetBall(direction = Math.random() > .5 ? 1 : -1) {
@@ -400,16 +528,24 @@
       }
 
       function update(dt) {
-        if (!state.running || window.innerHeight > window.innerWidth) return;
+        if (!state.running || state.height > state.width) return;
         const smoothing = 1 - Math.pow(.001, dt);
-        state.paddleY += (state.targetY - state.paddleY) * smoothing;
+        if (state.controlMode !== 'motion') {
+          state.paddleY += (state.targetY - state.paddleY) * smoothing;
+        }
 
         const b = state.ball;
         b.x += b.vx * dt;
-        b.y += b.vy * dt;
+        if (state.controlMode === 'motion') {
+          b.y += (state.targetBallY - b.y) * smoothing;
+        } else {
+          b.y += b.vy * dt;
+        }
 
         const radiusY = b.radius / state.height;
-        if (b.y - radiusY < .055) {
+        if (state.controlMode === 'motion') {
+          b.y = clamp(b.y, .055 + radiusY, .945 - radiusY);
+        } else if (b.y - radiusY < .055) {
           b.y = .055 + radiusY;
           b.vy = Math.abs(b.vy);
         } else if (b.y + radiusY > .945) {
@@ -502,28 +638,24 @@
       }
 
       function setTouchPosition(clientY) {
-        state.targetY = clamp(clientY / state.height, .08, .92);
+        const canvasTop = canvas.getBoundingClientRect().top;
+        state.targetY = clamp((clientY - canvasTop) / state.height, .08, .92);
         statusNode.textContent = 'Touch control active';
       }
 
-      async function begin() {
-        state.audio = state.audio || new (window.AudioContext || window.webkitAudioContext)();
-        if (state.audio.state === 'suspended') await state.audio.resume();
-
-        let motionEnabled = false;
+      async function enableMotion() {
+        if (typeof DeviceOrientationEvent === 'undefined') return false;
         try {
-          if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            motionEnabled = (await DeviceOrientationEvent.requestPermission()) === 'granted';
-          } else if ('DeviceOrientationEvent' in window) {
-            motionEnabled = true;
+          if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            return (await DeviceOrientationEvent.requestPermission()) === 'granted';
           }
+          return true;
         } catch (error) {
-          motionEnabled = false;
+          return false;
         }
+      }
 
-        window.addEventListener('deviceorientation', onOrientation, true);
-        statusNode.textContent = motionEnabled ? 'Tilt control active' : 'Drag anywhere to move';
-
+      async function enterImmersiveMode() {
         try {
           if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
             await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
@@ -532,13 +664,43 @@
         } catch (error) {
           // Browsers may require the person to rotate manually; the overlay explains this.
         }
+        resize();
+      }
+
+      async function begin(controlMode) {
+        controlError.textContent = '';
+
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          state.audio = state.audio || new AudioContextClass();
+          if (state.audio.state === 'suspended') state.audio.resume().catch(() => {});
+        }
+
+        if (controlMode === 'motion' && !(await enableMotion())) {
+          controlError.textContent = 'Motion access is unavailable. Choose touch control instead.';
+          return;
+        }
+
+        state.controlMode = controlMode;
+        if (controlMode === 'motion' && !state.orientationListening) {
+          window.addEventListener('deviceorientation', onOrientation, true);
+          state.orientationListening = true;
+        }
+        calibrateButton.hidden = controlMode !== 'motion';
+        statusNode.textContent = controlMode === 'motion'
+          ? 'Tilt to steer the ball'
+          : 'Drag anywhere to move';
 
         state.running = true;
-        state.baseline = state.orientationValue;
+        state.baseline = controlMode === 'motion' ? state.orientationValue : null;
+        state.paddleY = .5;
+        state.targetY = .5;
+        state.targetBallY = .5;
         state.rally = 0;
         updateScore();
         resetBall();
         intro.hidden = true;
+        enterImmersiveMode();
       }
 
       function clamp(value, min, max) {
@@ -561,20 +723,33 @@
         }
       }
 
-      startButton.addEventListener('click', begin);
+      motionButton.addEventListener('click', () => begin('motion'));
+      touchButton.addEventListener('click', () => begin('touch'));
       calibrateButton.addEventListener('click', () => {
+        if (state.controlMode !== 'motion') return;
         state.baseline = state.orientationValue;
-        state.targetY = .5;
+        state.targetBallY = .5;
         statusNode.textContent = 'Centred';
       });
 
-      window.addEventListener('pointerdown', event => {
-        if (intro.hidden) setTouchPosition(event.clientY);
+      let activePointerId = null;
+      canvas.addEventListener('pointerdown', event => {
+        if (!state.running || state.controlMode !== 'touch') return;
+        activePointerId = event.pointerId;
+        canvas.setPointerCapture(event.pointerId);
+        setTouchPosition(event.clientY);
       });
-      window.addEventListener('pointermove', event => {
-        if (intro.hidden && event.buttons) setTouchPosition(event.clientY);
+      canvas.addEventListener('pointermove', event => {
+        if (event.pointerId === activePointerId) setTouchPosition(event.clientY);
+      });
+      canvas.addEventListener('pointerup', event => {
+        if (event.pointerId === activePointerId) activePointerId = null;
+      });
+      canvas.addEventListener('pointercancel', event => {
+        if (event.pointerId === activePointerId) activePointerId = null;
       });
       window.addEventListener('keydown', event => {
+        if (!state.running) return;
         if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w') {
           state.targetY = clamp(state.targetY - .08, .08, .92);
           event.preventDefault();
@@ -585,6 +760,7 @@
         }
       });
       window.addEventListener('resize', resize);
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
       window.addEventListener('orientationchange', () => {
         state.baseline = null;
         setTimeout(resize, 120);
