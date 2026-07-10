@@ -31,8 +31,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site
-          cp "Brain Score Calculator.html" _site/index.html
-          cp "Brain Score Calculator.html" _site/404.html
+          cp index.html "Brain Score Calculator.html" tilt-rally.html _site/
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
