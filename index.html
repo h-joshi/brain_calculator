@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f2f1ea">
+  <title>Brain Arcade</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #151515;
+      --paper: #f2f1ea;
+      --lime: #dfff49;
+      --orange: #ff7043;
+      --muted: #66665f;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      background:
+        radial-gradient(circle at 18% 15%, rgba(223, 255, 73, .9) 0 6%, transparent 6.2%),
+        radial-gradient(circle at 87% 82%, rgba(255, 112, 67, .75) 0 8%, transparent 8.2%),
+        var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1040px, 100%);
+      min-height: 100svh;
+      margin: 0 auto;
+      padding: max(28px, env(safe-area-inset-top)) clamp(20px, 5vw, 64px) max(30px, env(safe-area-inset-bottom));
+      display: grid;
+      align-content: center;
+      gap: clamp(30px, 6vh, 62px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 16px;
+      font-size: .77rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 0 5px rgba(255, 112, 67, .15);
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(3rem, 10vw, 7.4rem);
+      line-height: .82;
+      letter-spacing: -.075em;
+      font-weight: 900;
+    }
+
+    .intro {
+      max-width: 530px;
+      margin: 24px 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 2.1vw, 1.2rem);
+      line-height: 1.55;
+    }
+
+    .games {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .game {
+      min-height: 230px;
+      padding: clamp(22px, 4vw, 36px);
+      border: 2px solid var(--ink);
+      border-radius: 28px;
+      color: inherit;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 7px 7px 0 var(--ink);
+      transition: transform .18s ease, box-shadow .18s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .game:first-child { background: var(--lime); }
+    .game:last-child { background: var(--orange); }
+
+    .game:hover, .game:focus-visible {
+      transform: translate(-3px, -3px);
+      box-shadow: 11px 11px 0 var(--ink);
+      outline: none;
+    }
+
+    .number {
+      font-size: .73rem;
+      font-weight: 900;
+      letter-spacing: .14em;
+    }
+
+    .game h2 {
+      max-width: 11ch;
+      margin: 0;
+      font-size: clamp(1.75rem, 4vw, 3.15rem);
+      line-height: .95;
+      letter-spacing: -.045em;
+    }
+
+    .game p {
+      max-width: 29ch;
+      margin: 12px 0 0;
+      font-size: .93rem;
+      line-height: 1.4;
+      font-weight: 650;
+    }
+
+    .arrow {
+      position: absolute;
+      right: 24px;
+      top: 22px;
+      width: 44px;
+      height: 44px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.45rem;
+      font-weight: 800;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 650;
+    }
+
+    @media (max-width: 650px) {
+      main { align-content: start; }
+      h1 { font-size: clamp(3.8rem, 19vw, 6rem); }
+      .games { grid-template-columns: 1fr; }
+      .game { min-height: 200px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .game { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Two tiny games, one big brain</p>
+      <h1>BRAIN<br>ARCADE</h1>
+      <p class="intro">Pick a game. Calculate a completely scientific brain score, or use your phone as the controller in a fast tilt-and-catch rally.</p>
+    </header>
+
+    <nav class="games" aria-label="Choose a game">
+      <a class="game" href="Brain%20Score%20Calculator.html">
+        <span class="number">GAME 01</span>
+        <span class="arrow" aria-hidden="true">↗</span>
+        <span>
+          <h2>Brain Score Calculator</h2>
+          <p>Type a name. Receive a deeply questionable scientific result.</p>
+        </span>
+      </a>
+
+      <a class="game" href="tilt-rally.html">
+        <span class="number">GAME 02 · LANDSCAPE</span>
+        <span class="arrow" aria-hidden="true">↗</span>
+        <span>
+          <h2>Tilt Rally</h2>
+          <p>Tilt one pair of paddles. Keep the ball alive. Chase your best rally.</p>
+        </span>
+      </a>
+    </nav>
+
+    <footer>Brain Arcade · Built for phones, works on desktop too.</footer>
+  </main>
+</body>
+</html>

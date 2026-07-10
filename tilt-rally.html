@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#10110d">
+  <title>Tilt Rally · Brain Arcade</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #10110d;
+      --cream: #f4f1df;
+      --lime: #dbff46;
+      --orange: #ff6844;
+      --line: rgba(244, 241, 223, .16);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: var(--ink);
+      color: var(--cream);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+    }
+
+    button, a { font: inherit; }
+
+    #game {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .topbar {
+      position: fixed;
+      z-index: 3;
+      top: max(12px, env(safe-area-inset-top));
+      left: max(18px, env(safe-area-inset-left));
+      right: max(18px, env(safe-area-inset-right));
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--lime);
+      font-size: clamp(.67rem, 1.5vw, .82rem);
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .brand::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--orange);
+    }
+
+    .scores {
+      display: flex;
+      gap: clamp(18px, 5vw, 50px);
+      text-align: right;
+    }
+
+    .score-label {
+      display: block;
+      margin-bottom: 2px;
+      color: rgba(244, 241, 223, .5);
+      font-size: clamp(.55rem, 1.15vw, .67rem);
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .score-value {
+      font-size: clamp(1.1rem, 3vw, 1.75rem);
+      font-weight: 900;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .home, .calibrate {
+      position: fixed;
+      z-index: 4;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      min-height: 38px;
+      padding: 0 15px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(16, 17, 13, .72);
+      backdrop-filter: blur(12px);
+      color: rgba(244, 241, 223, .8);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .home { left: max(14px, env(safe-area-inset-left)); }
+    .calibrate { right: max(14px, env(safe-area-inset-right)); cursor: pointer; }
+
+    .status {
+      position: fixed;
+      z-index: 3;
+      bottom: max(17px, calc(env(safe-area-inset-bottom) + 5px));
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(244, 241, 223, .42);
+      font-size: clamp(.58rem, 1.2vw, .7rem);
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-align: center;
+      text-transform: uppercase;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .panel, .rotate {
+      position: fixed;
+      z-index: 10;
+      inset: 0;
+      padding: max(24px, env(safe-area-inset-top)) max(26px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(26px, env(safe-area-inset-left));
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(219, 255, 70, .13), transparent 30%),
+        radial-gradient(circle at 80% 85%, rgba(255, 104, 68, .13), transparent 32%),
+        rgba(16, 17, 13, .96);
+    }
+
+    .panel[hidden], .rotate[hidden] { display: none; }
+
+    .panel-card {
+      width: min(680px, 100%);
+      text-align: center;
+    }
+
+    .kicker {
+      margin: 0 0 8px;
+      color: var(--orange);
+      font-size: clamp(.68rem, 1.6vw, .78rem);
+      font-weight: 900;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .panel h1, .rotate h1 {
+      margin: 0;
+      font-size: clamp(2.6rem, 10vw, 6.2rem);
+      line-height: .88;
+      letter-spacing: -.065em;
+    }
+
+    .panel p, .rotate p {
+      max-width: 500px;
+      margin: 20px auto 0;
+      color: rgba(244, 241, 223, .66);
+      font-size: clamp(.9rem, 2vw, 1.08rem);
+      line-height: 1.5;
+    }
+
+    .start {
+      margin-top: 26px;
+      min-width: 190px;
+      min-height: 54px;
+      padding: 0 30px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--lime);
+      color: var(--ink);
+      box-shadow: 0 6px 0 #7f9621;
+      cursor: pointer;
+      font-size: .86rem;
+      font-weight: 950;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .start:active { transform: translateY(3px); box-shadow: 0 3px 0 #7f9621; }
+
+    .controls-note {
+      display: block;
+      margin-top: 20px;
+      color: rgba(244, 241, 223, .38);
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .rotate { text-align: center; }
+
+    .phone {
+      width: 84px;
+      height: 142px;
+      margin: 0 auto 26px;
+      border: 5px solid var(--lime);
+      border-radius: 17px;
+      position: relative;
+      animation: turn 1.9s ease-in-out infinite;
+    }
+
+    .phone::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 7px;
+      width: 22px;
+      height: 4px;
+      border-radius: 9px;
+      transform: translateX(-50%);
+      background: var(--lime);
+    }
+
+    @keyframes turn {
+      0%, 20% { transform: rotate(0deg); }
+      65%, 100% { transform: rotate(90deg); }
+    }
+
+    @media (orientation: landscape) {
+      .rotate { display: none !important; }
+    }
+
+    @media (orientation: portrait) {
+      .rotate { display: grid; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .phone { animation: none; transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" aria-label="Tilt Rally game area"></canvas>
+
+  <div class="topbar" aria-live="polite">
+    <div class="brand">Tilt Rally</div>
+    <div class="scores">
+      <div><span class="score-label">Rally</span><strong class="score-value" id="score">0</strong></div>
+      <div><span class="score-label">Best</span><strong class="score-value" id="best">0</strong></div>
+    </div>
+  </div>
+
+  <a class="home" href="index.html">← Arcade</a>
+  <div class="status" id="status">Touch, tilt or use arrow keys</div>
+  <button class="calibrate" id="calibrate" type="button">Centre paddles</button>
+
+  <section class="panel" id="intro" aria-labelledby="game-title">
+    <div class="panel-card">
+      <p class="kicker">A one-phone reflex game</p>
+      <h1 id="game-title">TILT.<br>CATCH. DING.</h1>
+      <p>Both paddles move together. Tilt your phone up and down to meet the incoming ball. Every catch adds to your rally.</p>
+      <button class="start" id="start" type="button">Start rally</button>
+      <span class="controls-note">Landscape required · Sound on · Touch also works</span>
+    </div>
+  </section>
+
+  <section class="rotate" id="rotate" aria-label="Rotate your phone">
+    <div>
+      <div class="phone" aria-hidden="true"></div>
+      <h1>TURN<br>SIDEWAYS</h1>
+      <p>Tilt Rally needs the extra room. Rotate your phone to landscape to play.</p>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const intro = document.getElementById('intro');
+      const startButton = document.getElementById('start');
+      const calibrateButton = document.getElementById('calibrate');
+      const scoreNode = document.getElementById('score');
+      const bestNode = document.getElementById('best');
+      const statusNode = document.getElementById('status');
+
+      const state = {
+        width: 0,
+        height: 0,
+        dpr: 1,
+        running: false,
+        paddleY: .5,
+        targetY: .5,
+        baseline: null,
+        orientationValue: null,
+        lastTime: 0,
+        rally: 0,
+        best: readBest(),
+        flash: 0,
+        shake: 0,
+        audio: null,
+        ball: { x: .5, y: .5, vx: .42, vy: .16, radius: 10 },
+      };
+
+      bestNode.textContent = state.best;
+
+      function resize() {
+        state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        state.width = window.innerWidth;
+        state.height = window.innerHeight;
+        canvas.width = Math.round(state.width * state.dpr);
+        canvas.height = Math.round(state.height * state.dpr);
+        canvas.style.width = state.width + 'px';
+        canvas.style.height = state.height + 'px';
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        state.ball.radius = Math.max(7, Math.min(12, state.height * .028));
+      }
+
+      function orientationAxis(event) {
+        const rawAngle = screen.orientation && Number.isFinite(screen.orientation.angle)
+          ? screen.orientation.angle
+          : (Number(window.orientation) || 0);
+        const angle = ((rawAngle % 360) + 360) % 360;
+        if (angle === 90 || angle === 270) {
+          return (event.gamma || 0) * (angle === 90 ? -1 : 1);
+        }
+        return event.beta || 0;
+      }
+
+      function onOrientation(event) {
+        const value = orientationAxis(event);
+        if (!Number.isFinite(value)) return;
+        state.orientationValue = value;
+        if (state.baseline === null) state.baseline = value;
+        const delta = value - state.baseline;
+        state.targetY = clamp(.5 + delta / 42, .08, .92);
+      }
+
+      function resetBall(direction = Math.random() > .5 ? 1 : -1) {
+        state.ball.x = .5;
+        state.ball.y = .28 + Math.random() * .44;
+        state.ball.vx = direction * (.39 + Math.min(state.rally, 16) * .008);
+        state.ball.vy = (Math.random() * .22 + .1) * (Math.random() > .5 ? 1 : -1);
+      }
+
+      function updateScore() {
+        scoreNode.textContent = state.rally;
+        if (state.rally > state.best) {
+          state.best = state.rally;
+          bestNode.textContent = state.best;
+          saveBest(state.best);
+        }
+      }
+
+      function ding() {
+        if (!state.audio) return;
+        const now = state.audio.currentTime;
+        const osc = state.audio.createOscillator();
+        const gain = state.audio.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(740, now);
+        osc.frequency.exponentialRampToValueAtTime(1120, now + .06);
+        gain.gain.setValueAtTime(.0001, now);
+        gain.gain.exponentialRampToValueAtTime(.18, now + .008);
+        gain.gain.exponentialRampToValueAtTime(.0001, now + .14);
+        osc.connect(gain).connect(state.audio.destination);
+        osc.start(now);
+        osc.stop(now + .15);
+      }
+
+      function miss() {
+        if (navigator.vibrate) navigator.vibrate(45);
+        state.shake = .24;
+        state.rally = 0;
+        updateScore();
+        resetBall(state.ball.vx > 0 ? -1 : 1);
+      }
+
+      function hit(side) {
+        const speed = Math.min(.58, Math.abs(state.ball.vx) + .012);
+        state.ball.vx = side === 'left' ? speed : -speed;
+        const paddleCentre = state.paddleY;
+        const offset = (state.ball.y - paddleCentre) / .16;
+        state.ball.vy = clamp(state.ball.vy + offset * .2, -.5, .5);
+        state.ball.x = side === 'left' ? .052 : .948;
+        state.rally += 1;
+        state.flash = .18;
+        updateScore();
+        ding();
+      }
+
+      function update(dt) {
+        if (!state.running || window.innerHeight > window.innerWidth) return;
+        const smoothing = 1 - Math.pow(.001, dt);
+        state.paddleY += (state.targetY - state.paddleY) * smoothing;
+
+        const b = state.ball;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+
+        const radiusY = b.radius / state.height;
+        if (b.y - radiusY < .055) {
+          b.y = .055 + radiusY;
+          b.vy = Math.abs(b.vy);
+        } else if (b.y + radiusY > .945) {
+          b.y = .945 - radiusY;
+          b.vy = -Math.abs(b.vy);
+        }
+
+        const paddleHalf = Math.max(.09, Math.min(.17, 50 / state.height));
+        const withinPaddle = Math.abs(b.y - state.paddleY) <= paddleHalf + radiusY;
+        if (b.vx < 0 && b.x <= .052 && b.x > -.02 && withinPaddle) hit('left');
+        if (b.vx > 0 && b.x >= .948 && b.x < 1.02 && withinPaddle) hit('right');
+        if (b.x < -.04 || b.x > 1.04) miss();
+
+        state.flash = Math.max(0, state.flash - dt);
+        state.shake = Math.max(0, state.shake - dt);
+      }
+
+      function roundRect(x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, r);
+      }
+
+      function draw() {
+        const w = state.width;
+        const h = state.height;
+        const shakeX = state.shake > 0 ? (Math.random() - .5) * 10 : 0;
+        const shakeY = state.shake > 0 ? (Math.random() - .5) * 7 : 0;
+
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+        ctx.fillStyle = state.flash > 0 ? '#181a10' : '#10110d';
+        ctx.fillRect(-12, -12, w + 24, h + 24);
+
+        ctx.strokeStyle = 'rgba(244, 241, 223, .075)';
+        ctx.lineWidth = 1;
+        const gap = Math.max(35, Math.floor(h / 8));
+        for (let y = gap; y < h; y += gap) {
+          ctx.beginPath();
+          ctx.moveTo(0, y + .5);
+          ctx.lineTo(w, y + .5);
+          ctx.stroke();
+        }
+
+        ctx.setLineDash([7, 12]);
+        ctx.strokeStyle = 'rgba(244, 241, 223, .16)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(w / 2, h * .08);
+        ctx.lineTo(w / 2, h * .92);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const paddleW = Math.max(11, Math.min(17, w * .018));
+        const paddleH = Math.max(64, Math.min(112, h * .27));
+        const paddleY = state.paddleY * h - paddleH / 2;
+        const inset = Math.max(22, Math.min(48, w * .045));
+
+        ctx.shadowColor = 'rgba(219, 255, 70, .34)';
+        ctx.shadowBlur = 22;
+        ctx.fillStyle = '#dbff46';
+        roundRect(inset, paddleY, paddleW, paddleH, paddleW / 2);
+        ctx.fill();
+        roundRect(w - inset - paddleW, paddleY, paddleW, paddleH, paddleW / 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        const ballX = state.ball.x * w;
+        const ballY = state.ball.y * h;
+        const gradient = ctx.createRadialGradient(ballX - 3, ballY - 4, 1, ballX, ballY, state.ball.radius);
+        gradient.addColorStop(0, '#fffce9');
+        gradient.addColorStop(1, '#ff6844');
+        ctx.fillStyle = gradient;
+        ctx.shadowColor = 'rgba(255, 104, 68, .55)';
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.arc(ballX, ballY, state.ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.restore();
+      }
+
+      function frame(time) {
+        const dt = Math.min(.032, (time - state.lastTime) / 1000 || 0);
+        state.lastTime = time;
+        update(dt);
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      function setTouchPosition(clientY) {
+        state.targetY = clamp(clientY / state.height, .08, .92);
+        statusNode.textContent = 'Touch control active';
+      }
+
+      async function begin() {
+        state.audio = state.audio || new (window.AudioContext || window.webkitAudioContext)();
+        if (state.audio.state === 'suspended') await state.audio.resume();
+
+        let motionEnabled = false;
+        try {
+          if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            motionEnabled = (await DeviceOrientationEvent.requestPermission()) === 'granted';
+          } else if ('DeviceOrientationEvent' in window) {
+            motionEnabled = true;
+          }
+        } catch (error) {
+          motionEnabled = false;
+        }
+
+        window.addEventListener('deviceorientation', onOrientation, true);
+        statusNode.textContent = motionEnabled ? 'Tilt control active' : 'Drag anywhere to move';
+
+        try {
+          if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+            await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+          }
+          if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+        } catch (error) {
+          // Browsers may require the person to rotate manually; the overlay explains this.
+        }
+
+        state.running = true;
+        state.baseline = state.orientationValue;
+        state.rally = 0;
+        updateScore();
+        resetBall();
+        intro.hidden = true;
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function readBest() {
+        try {
+          return Number(localStorage.getItem('tilt-rally-best') || 0);
+        } catch (error) {
+          return 0;
+        }
+      }
+
+      function saveBest(value) {
+        try {
+          localStorage.setItem('tilt-rally-best', String(value));
+        } catch (error) {
+          // The game still works when storage is unavailable (for example, private browsing).
+        }
+      }
+
+      startButton.addEventListener('click', begin);
+      calibrateButton.addEventListener('click', () => {
+        state.baseline = state.orientationValue;
+        state.targetY = .5;
+        statusNode.textContent = 'Centred';
+      });
+
+      window.addEventListener('pointerdown', event => {
+        if (intro.hidden) setTouchPosition(event.clientY);
+      });
+      window.addEventListener('pointermove', event => {
+        if (intro.hidden && event.buttons) setTouchPosition(event.clientY);
+      });
+      window.addEventListener('keydown', event => {
+        if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w') {
+          state.targetY = clamp(state.targetY - .08, .08, .92);
+          event.preventDefault();
+        }
+        if (event.key === 'ArrowDown' || event.key.toLowerCase() === 's') {
+          state.targetY = clamp(state.targetY + .08, .08, .92);
+          event.preventDefault();
+        }
+      });
+      window.addEventListener('resize', resize);
+      window.addEventListener('orientationchange', () => {
+        state.baseline = null;
+        setTimeout(resize, 120);
+      });
+      document.addEventListener('visibilitychange', () => {
+        state.lastTime = performance.now();
+      });
+
+      resize();
+      resetBall();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
