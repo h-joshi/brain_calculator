@@ -19,7 +19,7 @@ const game = {
 
 const online = {
   client: null, room: null, player: null, players: [], channel: null, joinMode: 'create',
-  selectedControl: null, presence: new Set(), poll: null, disconnectTimer: null,
+  selectedControl: null, selectedRoomCode: null, presence: new Set(), poll: null, disconnectTimer: null,
 };
 
 function showPanel(id) {
@@ -209,12 +209,13 @@ function clearSession() { sessionStorage.removeItem('tilt-rally-room'); }
 async function createOrJoin(event) {
   event.preventDefault(); ui.roomError.textContent = '';
   const name = $('player-name').value.trim(), password = $('room-password').value;
+  if (online.joinMode === 'join' && !online.selectedRoomCode) { ui.roomError.textContent = 'Select a room to join.'; return; }
   if (!name || name.length > 20 || password.length < 4 || password.length > 64) { ui.roomError.textContent = 'Enter a name and a password of 4–64 characters.'; return; }
   const token = randomToken(); $('room-submit').disabled = true;
   try {
     const data = online.joinMode === 'create'
       ? await rpc('create_tilt_room', { p_display_name: name, p_password: password, p_player_token: token })
-      : await rpc('join_tilt_room', { p_room_code: $('room-code').value.trim().toUpperCase(), p_display_name: name, p_password: password, p_player_token: token });
+      : await rpc('join_tilt_room', { p_room_code: online.selectedRoomCode, p_display_name: name, p_password: password, p_player_token: token });
     online.room = data.room; online.player = { ...data.player, token, channel_secret: data.channel_secret }; saveSession();
     await connectRoom();
   } catch (error) { ui.roomError.textContent = friendlyError(error); }
@@ -223,7 +224,7 @@ async function createOrJoin(event) {
 
 function friendlyError(error) {
   const message = error.message || String(error);
-  const known = { INVALID_PASSWORD: 'That password is incorrect.', ROOM_FULL: 'That room already has two players.', ROOM_NOT_FOUND: 'Room not found or expired.', DUPLICATE_NAME: 'That name is already in use.', NOT_HOST: 'Only the host can start the match.', NOT_READY: 'Both players must be connected and ready.' };
+  const known = { INVALID_PASSWORD: 'That password is incorrect.', ROOM_FULL: 'That room already has two players.', ROOM_NOT_FOUND: 'Room not found or expired.', ROOM_IN_PROGRESS: 'That room has already started.', DUPLICATE_NAME: 'That name is already in use.', NOT_HOST: 'Only the host can start the match.', NOT_READY: 'Both players must be connected and ready.' };
   return known[Object.keys(known).find(key => message.includes(key))] || message;
 }
 
@@ -392,8 +393,36 @@ function saveBest(value) { try { localStorage.setItem('tilt-rally-best', String(
 
 function setJoinMode(mode) {
   online.joinMode = mode; $('create-tab').classList.toggle('active', mode === 'create'); $('join-tab').classList.toggle('active', mode === 'join');
-  $('code-field').hidden = mode === 'create'; $('room-code').required = mode === 'join'; $('room-submit').textContent = mode === 'create' ? 'Create private room' : 'Join private room';
+  $('room-browser').hidden = mode === 'create'; $('room-submit').textContent = mode === 'create' ? 'Create private room' : 'Select a room';
+  $('room-submit').disabled = !online.client || (mode === 'join' && !online.selectedRoomCode);
   $('room-password').autocomplete = mode === 'create' ? 'new-password' : 'current-password'; ui.roomError.textContent = '';
+  if (mode === 'join') refreshRooms();
+}
+
+async function refreshRooms() {
+  const list = $('room-list'), refresh = $('refresh-rooms');
+  online.selectedRoomCode = null; $('room-submit').disabled = true; refresh.disabled = true;
+  list.innerHTML = '<p class="room-list-status">Looking for rooms…</p>';
+  try {
+    const rooms = await rpc('list_tilt_rooms', {});
+    if (!rooms.length) {
+      list.innerHTML = '<p class="room-list-status">No rooms are waiting. Refresh or create one.</p>';
+      return;
+    }
+    list.innerHTML = rooms.map(room => `<button class="room-option" type="button" role="radio" aria-checked="false" data-room-code="${escapeHtml(room.code)}"><span><strong>${escapeHtml(room.host_name)}</strong><small>Room ${escapeHtml(room.code)}</small></span><span class="room-space">${room.player_count}/2 players</span></button>`).join('');
+  } catch (error) {
+    list.innerHTML = `<p class="room-list-status error">${escapeHtml(friendlyError(error))}</p>`;
+  } finally { refresh.disabled = false; }
+}
+
+function selectRoom(button) {
+  online.selectedRoomCode = button.dataset.roomCode;
+  document.querySelectorAll('.room-option').forEach(option => {
+    const selected = option === button;
+    option.classList.toggle('selected', selected); option.setAttribute('aria-checked', String(selected));
+  });
+  $('room-submit').disabled = false; $('room-submit').textContent = `Join room ${online.selectedRoomCode}`;
+  ui.roomError.textContent = '';
 }
 
 async function restoreSession() {
@@ -412,7 +441,8 @@ document.querySelectorAll('[data-back]').forEach(button => button.addEventListen
 document.querySelectorAll('[data-solo-control]').forEach(button => button.addEventListener('click', () => beginSolo(button.dataset.soloControl)));
 document.querySelectorAll('[data-online-control]').forEach(button => button.addEventListener('click', () => selectOnlineControl(button.dataset.onlineControl)));
 $('create-tab').addEventListener('click', () => setJoinMode('create')); $('join-tab').addEventListener('click', () => setJoinMode('join'));
-$('room-form').addEventListener('submit', createOrJoin); ui.ready.addEventListener('click', toggleReady); ui.start.addEventListener('click', startOnlineMatch);
+$('refresh-rooms').addEventListener('click', refreshRooms); $('room-form').addEventListener('submit', createOrJoin); ui.ready.addEventListener('click', toggleReady); ui.start.addEventListener('click', startOnlineMatch);
+$('room-list').addEventListener('click', event => { const option = event.target.closest('.room-option'); if (option) selectRoom(option); });
 $('leave-button').addEventListener('click', leaveRoom); $('result-leave').addEventListener('click', leaveRoom); $('rematch-button').addEventListener('click', rematch);
 $('lobby-code').addEventListener('click', async () => { await navigator.clipboard?.writeText(online.room.code); $('lobby-code').textContent = 'COPIED'; setTimeout(() => { if (online.room) $('lobby-code').textContent = online.room.code; }, 1000); });
 ui.calibrate.addEventListener('click', () => { game.baseline = game.orientationValue; game.targetY = .5; ui.status.textContent = 'Centred'; });

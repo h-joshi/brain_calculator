@@ -63,7 +63,7 @@ create or replace function public.tilt_authorise(p_room_id uuid, p_player_id uui
 returns public.room_players language sql stable security definer set search_path = public as $$
   select p.* from public.room_players p join public.rooms r on r.id = p.room_id
   where p.id = p_player_id and p.room_id = p_room_id
-    and p.token_hash = digest(p_token, 'sha256') and r.expires_at > now()
+    and p.token_hash = extensions.digest(p_token, 'sha256') and r.expires_at > now()
 $$;
 
 create or replace function public.tilt_room_json(p_room public.rooms)
@@ -88,13 +88,14 @@ begin
   loop
     new_code := public.tilt_code();
     begin
-      insert into public.rooms(code, password_hash) values (new_code, crypt(p_password, gen_salt('bf'))) returning * into r;
+      insert into public.rooms(code, password_hash)
+      values (new_code, extensions.crypt(p_password, extensions.gen_salt('bf'))) returning * into r;
       exit;
     exception when unique_violation then null;
     end;
   end loop;
   insert into public.room_players(room_id, display_name, side, token_hash)
-  values (r.id, clean_name, 'left', digest(p_player_token, 'sha256')) returning * into p;
+  values (r.id, clean_name, 'left', extensions.digest(p_player_token, 'sha256')) returning * into p;
   return jsonb_build_object('room', public.tilt_room_json(r), 'player', public.tilt_player_json(p), 'channel_secret', r.channel_secret);
 end $$;
 
@@ -104,16 +105,32 @@ declare r public.rooms; p public.room_players; clean_name text := btrim(p_displa
 begin
   select * into r from public.rooms where code = upper(btrim(p_room_code)) and expires_at > now() for update;
   if not found then raise exception 'ROOM_NOT_FOUND'; end if;
-  if r.password_hash <> crypt(p_password, r.password_hash) then raise exception 'INVALID_PASSWORD'; end if;
+  if r.password_hash <> extensions.crypt(p_password, r.password_hash) then raise exception 'INVALID_PASSWORD'; end if;
   if r.state <> 'waiting' then raise exception 'ROOM_IN_PROGRESS'; end if;
   if char_length(clean_name) not between 1 and 20 then raise exception 'INVALID_NAME'; end if;
   if exists(select 1 from public.room_players where room_id = r.id and lower(display_name) = lower(clean_name)) then raise exception 'DUPLICATE_NAME'; end if;
   if (select count(*) from public.room_players where room_id = r.id) >= 2 then raise exception 'ROOM_FULL'; end if;
   insert into public.room_players(room_id, display_name, side, token_hash)
-  values (r.id, clean_name, 'right', digest(p_player_token, 'sha256')) returning * into p;
+  values (r.id, clean_name, 'right', extensions.digest(p_player_token, 'sha256')) returning * into p;
   update public.rooms set updated_at = now(), expires_at = now() + interval '2 hours' where id = r.id returning * into r;
   return jsonb_build_object('room', public.tilt_room_json(r), 'player', public.tilt_player_json(p), 'channel_secret', r.channel_secret);
 end $$;
+
+create or replace function public.list_tilt_rooms()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(room order by room.created_at desc), '[]'::jsonb)
+  from (
+    select r.code, r.created_at, min(p.display_name) filter (where p.side = 'left') as host_name,
+      count(p.id)::int as player_count
+    from public.rooms r
+    join public.room_players p on p.room_id = r.id
+    where r.state = 'waiting' and r.expires_at > now()
+    group by r.id, r.code, r.created_at
+    having count(p.id) < 2
+    order by r.created_at desc
+    limit 50
+  ) room
+$$;
 
 create or replace function public.get_tilt_room(p_room_id uuid, p_player_id uuid, p_player_token text)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -248,13 +265,34 @@ returns integer language plpgsql security definer set search_path = public as $$
 declare removed integer;
 begin delete from public.rooms where expires_at <= now(); get diagnostics removed = row_count; return removed; end $$;
 
-revoke all on function public.tilt_authorise(uuid,uuid,text) from public;
-grant execute on function public.create_tilt_room(text,text,text), public.join_tilt_room(text,text,text,text),
+-- Supabase may grant function execution to PUBLIC, anon, and authenticated by
+-- default. Remove those grants from every Tilt Rally function, then expose only
+-- the token-validating browser RPCs to the unauthenticated game client.
+revoke all on function public.tilt_code() from public, anon, authenticated;
+revoke all on function public.tilt_authorise(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.tilt_room_json(public.rooms) from public, anon, authenticated;
+revoke all on function public.tilt_player_json(public.room_players) from public, anon, authenticated;
+revoke all on function public.create_tilt_room(text,text,text) from public, anon, authenticated;
+revoke all on function public.join_tilt_room(text,text,text,text) from public, anon, authenticated;
+revoke all on function public.list_tilt_rooms() from public, anon, authenticated;
+revoke all on function public.get_tilt_room(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.reconnect_tilt_room(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.set_tilt_player_ready(uuid,uuid,text,text,boolean) from public, anon, authenticated;
+revoke all on function public.start_tilt_match(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.play_tilt_match(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.score_tilt_match(uuid,uuid,text,int,int) from public, anon, authenticated;
+revoke all on function public.finish_tilt_match(uuid,uuid,text,text,int,int) from public, anon, authenticated;
+revoke all on function public.reset_tilt_room(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.leave_tilt_room(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.expire_tilt_player(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.cleanup_tilt_rooms() from public, anon, authenticated;
+
+grant execute on function public.create_tilt_room(text,text,text), public.join_tilt_room(text,text,text,text), public.list_tilt_rooms(),
   public.get_tilt_room(uuid,uuid,text), public.reconnect_tilt_room(uuid,uuid,text),
   public.set_tilt_player_ready(uuid,uuid,text,text,boolean), public.start_tilt_match(uuid,uuid,text),
   public.play_tilt_match(uuid,uuid,text),
   public.score_tilt_match(uuid,uuid,text,int,int),
   public.finish_tilt_match(uuid,uuid,text,text,int,int), public.reset_tilt_room(uuid,uuid,text),
-  public.leave_tilt_room(uuid,uuid,text), public.expire_tilt_player(uuid,uuid,text) to anon, authenticated;
+  public.leave_tilt_room(uuid,uuid,text), public.expire_tilt_player(uuid,uuid,text) to anon;
 
 -- Schedule `select public.cleanup_tilt_rooms();` hourly in Supabase Cron.

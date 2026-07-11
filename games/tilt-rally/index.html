@@ -57,9 +57,15 @@
         <button class="tab active" id="create-tab" type="button">Create room</button>
         <button class="tab" id="join-tab" type="button">Join room</button>
       </div>
+      <div class="room-browser" id="room-browser" hidden>
+        <div class="room-browser-heading">
+          <p class="section-label">Available rooms</p>
+          <button class="refresh-rooms" id="refresh-rooms" type="button">Refresh</button>
+        </div>
+        <div class="room-list" id="room-list" role="radiogroup" aria-label="Available rooms"></div>
+      </div>
       <form id="room-form" class="room-form">
         <label>Your name<input id="player-name" maxlength="20" autocomplete="nickname" required></label>
-        <label id="code-field" hidden>Room code<input id="room-code" maxlength="6" autocapitalize="characters" autocomplete="off"></label>
         <label>Room password<input id="room-password" type="password" minlength="4" maxlength="64" autocomplete="new-password" required></label>
         <button class="primary" id="room-submit" type="submit">Create private room</button>
       </form>
