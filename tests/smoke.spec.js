@@ -12,7 +12,7 @@ test('Brain Score Calculator loads without page errors', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
 
-  await page.goto('/Brain%20Score%20Calculator.html');
+  await page.goto('/games/brain-score-calculator/');
 
   await expect(page.locator('body')).toBeVisible();
   expect(errors).toEqual([]);
@@ -22,7 +22,7 @@ test('Tilt Rally opens its start screen and supports keyboard fallback', async (
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
 
-  await page.goto('/tilt-rally.html');
+  await page.goto('/games/tilt-rally/');
 
   await expect(page.locator('#mode-panel')).toBeVisible();
   await expect(page.getByRole('button', { name: /solo/i })).toBeVisible();

@@ -1,4 +1,4 @@
-name: Deploy SPA to GitHub Pages
+name: Deploy static site to GitHub Pages
 
 on:
   push:
@@ -31,7 +31,8 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site
-          cp index.html "Brain Score Calculator.html" tilt-rally.html _site/
+          cp index.html _site/
+          cp -R games _site/
           touch _site/.nojekyll
 
       - name: Upload Pages artifact

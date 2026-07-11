@@ -2,14 +2,14 @@
 
 ## Project overview
 
-Brain Arcade is a static, mobile-first collection of browser games deployed to GitHub Pages. There is no package manager or build step. `index.html` is the launcher; `Brain Score Calculator.html` is a self-contained legacy game; and Tilt Rally is split across `tilt-rally.html`, `tilt-rally.css`, and `tilt-rally.js`. Multiplayer support uses the public Supabase JavaScript client and the SQL migration in `supabase/migrations/`.
+Brain Arcade is a static, mobile-first collection of browser games deployed to GitHub Pages. There is no package manager or build step. `index.html` is the launcher; the self-contained Brain Score Calculator is in `games/brain-score-calculator/`; and Tilt Rally is in `games/tilt-rally/`. Multiplayer support uses the public Supabase JavaScript client and the SQL migration under the Tilt Rally directory.
 
 ## Development workflow
 
 - Serve the repository over HTTP with `python3 -m http.server 8000`, then open `http://localhost:8000/`. Do not rely on `file://` URLs.
 - Motion controls require a secure context and explicit user permission. Test them on the deployed HTTPS site using current mobile Safari and Chrome in landscape orientation.
 - There is no automated test suite. For each change, run `git diff --check`, parse or syntax-check changed JavaScript/HTML, and manually exercise the affected flow.
-- For Tilt Rally, verify solo tilt, touch, keyboard controls, calibration, scoring, local best score, rotation prompts, and audio. Multiplayer changes also require two browser sessions and the cases listed in `MULTIPLAYER_SETUP.md` or the relevant task.
+- For Tilt Rally, verify solo tilt, touch, keyboard controls, calibration, scoring, local best score, rotation prompts, and audio. Multiplayer changes also require two browser sessions and the cases listed in `games/tilt-rally/MULTIPLAYER_SETUP.md` or the relevant task.
 
 ## Code conventions
 
@@ -19,7 +19,7 @@ Tilt Rally's multiplayer host is authoritative for physics, collisions, scores, 
 
 ## Supabase and security
 
-Apply `supabase/migrations/001_multiplayer.sql` through the Supabase SQL editor or CLI. Keep privileged data behind token-validated `security definer` RPCs and deny direct anonymous table access. Password hashes, service-role keys, and other secrets must never reach browser code or git. `supabase-config.js` may contain only the public project URL and anonymous key; keep `supabase-config.example.js` aligned with its shape. Follow `MULTIPLAYER_SETUP.md` for deployment and cleanup scheduling.
+Apply `games/tilt-rally/supabase/migrations/001_multiplayer.sql` through the Supabase SQL editor or CLI. Keep privileged data behind token-validated `security definer` RPCs and deny direct anonymous table access. Password hashes, service-role keys, and other secrets must never reach browser code or git. `games/tilt-rally/supabase-config.js` may contain only the public project URL and anonymous key; keep `games/tilt-rally/supabase-config.example.js` aligned with its shape. Follow `games/tilt-rally/MULTIPLAYER_SETUP.md` for deployment and cleanup scheduling.
 
 ## Deployment and review
 

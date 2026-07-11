@@ -4,9 +4,9 @@
   "scripts": {
     "dev": "python3 -m http.server 8000",
     "check": "npm run check:html && npm run check:css && npm run check:js",
-    "check:html": "html-validate index.html tilt-rally.html 'Brain Score Calculator.html'",
-    "check:css": "stylelint tilt-rally.css",
-    "check:js": "eslint tilt-rally.js supabase-config.js supabase-config.example.js tests",
+    "check:html": "html-validate index.html games/brain-score-calculator/index.html games/tilt-rally/index.html",
+    "check:css": "stylelint games/tilt-rally/tilt-rally.css",
+    "check:js": "eslint games/tilt-rally/tilt-rally.js games/tilt-rally/supabase-config.js games/tilt-rally/supabase-config.example.js tests",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui"

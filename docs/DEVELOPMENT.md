@@ -16,5 +16,6 @@ installed automatically with `npm install`.
 
 The automated tests cover basic loading and navigation. Motion permissions,
 device orientation, audio, calibration and two-player networking still require
-manual testing on HTTPS-capable mobile devices as described in `AGENTS.md` and
-`MULTIPLAYER_SETUP.md`.
+manual testing on HTTPS-capable mobile devices as described in
+[`AGENTS.md`](../AGENTS.md) and
+[`games/tilt-rally/MULTIPLAYER_SETUP.md`](../games/tilt-rally/MULTIPLAYER_SETUP.md).
