@@ -373,11 +373,11 @@
     <div class="panel-card">
       <p class="kicker">A one-phone reflex game</p>
       <h1 id="game-title">TILT.<br>CATCH. DING.</h1>
-      <p class="intro-copy">Steer the ball with your phone's tilt, or drag both paddles with a finger. Every catch builds your rally.</p>
+      <p class="intro-copy">Move both paddles with your phone's tilt, or drag them with a finger. Every catch builds your rally.</p>
       <div class="control-options" role="group" aria-label="Choose a control mode">
         <button class="control-option" id="start-motion" type="button">
           <strong>Play with tilt</strong>
-          <span>Steer the ball by tilting your phone up and down.</span>
+          <span>Move both paddles by tilting your phone up and down.</span>
         </button>
         <button class="control-option" id="start-touch" type="button">
           <strong>Play with touch</strong>
@@ -420,7 +420,6 @@
         controlMode: null,
         paddleY: .5,
         targetY: .5,
-        targetBallY: .5,
         baseline: null,
         orientationValue: null,
         lastTime: 0,
@@ -471,7 +470,7 @@
         state.orientationValue = value;
         if (state.baseline === null) state.baseline = value;
         const delta = value - state.baseline;
-        state.targetBallY = clamp(.5 + delta / 42, .08, .92);
+        state.targetY = clamp(.5 + delta / 42, .08, .92);
       }
 
       function resetBall(direction = Math.random() > .5 ? 1 : -1) {
@@ -530,22 +529,14 @@
       function update(dt) {
         if (!state.running || state.height > state.width) return;
         const smoothing = 1 - Math.pow(.001, dt);
-        if (state.controlMode !== 'motion') {
-          state.paddleY += (state.targetY - state.paddleY) * smoothing;
-        }
+        state.paddleY += (state.targetY - state.paddleY) * smoothing;
 
         const b = state.ball;
         b.x += b.vx * dt;
-        if (state.controlMode === 'motion') {
-          b.y += (state.targetBallY - b.y) * smoothing;
-        } else {
-          b.y += b.vy * dt;
-        }
+        b.y += b.vy * dt;
 
         const radiusY = b.radius / state.height;
-        if (state.controlMode === 'motion') {
-          b.y = clamp(b.y, .055 + radiusY, .945 - radiusY);
-        } else if (b.y - radiusY < .055) {
+        if (b.y - radiusY < .055) {
           b.y = .055 + radiusY;
           b.vy = Math.abs(b.vy);
         } else if (b.y + radiusY > .945) {
@@ -688,14 +679,13 @@
         }
         calibrateButton.hidden = controlMode !== 'motion';
         statusNode.textContent = controlMode === 'motion'
-          ? 'Tilt to steer the ball'
+          ? 'Tilt to move the paddles'
           : 'Drag anywhere to move';
 
         state.running = true;
         state.baseline = controlMode === 'motion' ? state.orientationValue : null;
         state.paddleY = .5;
         state.targetY = .5;
-        state.targetBallY = .5;
         state.rally = 0;
         updateScore();
         resetBall();
@@ -728,7 +718,7 @@
       calibrateButton.addEventListener('click', () => {
         if (state.controlMode !== 'motion') return;
         state.baseline = state.orientationValue;
-        state.targetBallY = .5;
+        state.targetY = .5;
         statusNode.textContent = 'Centred';
       });
 
