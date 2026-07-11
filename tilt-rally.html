@@ -5,764 +5,102 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#10110d">
   <title>Tilt Rally · Brain Arcade</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      --ink: #10110d;
-      --cream: #f4f1df;
-      --lime: #dbff46;
-      --orange: #ff6844;
-      --line: rgba(244, 241, 223, .16);
-      --app-width: 100vw;
-      --app-height: 100svh;
-    }
-
-    * { box-sizing: border-box; }
-
-    html {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-      overscroll-behavior: none;
-      background: var(--ink);
-    }
-
-    body {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: var(--app-width);
-      height: var(--app-height);
-      margin: 0;
-      overflow: hidden;
-      overscroll-behavior: none;
-      background: var(--ink);
-      color: var(--cream);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      touch-action: none;
-    }
-
-    button, a { font: inherit; }
-
-    #game {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    .topbar {
-      position: absolute;
-      z-index: 3;
-      top: max(12px, env(safe-area-inset-top));
-      left: max(18px, env(safe-area-inset-left));
-      right: max(18px, env(safe-area-inset-right));
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      pointer-events: none;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      color: var(--lime);
-      font-size: clamp(.67rem, 1.5vw, .82rem);
-      font-weight: 900;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-    }
-
-    .brand::before {
-      content: "";
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: var(--orange);
-    }
-
-    .scores {
-      display: flex;
-      gap: clamp(18px, 5vw, 50px);
-      text-align: right;
-    }
-
-    .score-label {
-      display: block;
-      margin-bottom: 2px;
-      color: rgba(244, 241, 223, .5);
-      font-size: clamp(.55rem, 1.15vw, .67rem);
-      font-weight: 800;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-    }
-
-    .score-value {
-      font-size: clamp(1.1rem, 3vw, 1.75rem);
-      font-weight: 900;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .home, .calibrate {
-      position: absolute;
-      z-index: 4;
-      bottom: max(12px, env(safe-area-inset-bottom));
-      min-height: 38px;
-      padding: 0 15px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(16, 17, 13, .72);
-      backdrop-filter: blur(12px);
-      color: rgba(244, 241, 223, .8);
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      font-size: .72rem;
-      font-weight: 800;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .home { left: max(14px, env(safe-area-inset-left)); }
-    .calibrate { right: max(14px, env(safe-area-inset-right)); cursor: pointer; }
-    .calibrate[hidden] { display: none; }
-
-    .status {
-      position: absolute;
-      z-index: 3;
-      bottom: max(17px, calc(env(safe-area-inset-bottom) + 5px));
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(244, 241, 223, .42);
-      font-size: clamp(.58rem, 1.2vw, .7rem);
-      font-weight: 750;
-      letter-spacing: .08em;
-      text-align: center;
-      text-transform: uppercase;
-      white-space: nowrap;
-      pointer-events: none;
-    }
-
-    .panel, .rotate {
-      position: absolute;
-      z-index: 10;
-      inset: 0;
-      padding: max(18px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
-      background:
-        radial-gradient(circle at 20% 20%, rgba(219, 255, 70, .13), transparent 30%),
-        radial-gradient(circle at 80% 85%, rgba(255, 104, 68, .13), transparent 32%),
-        rgba(16, 17, 13, .96);
-    }
-
-    .panel[hidden], .rotate[hidden] { display: none; }
-
-    .panel {
-      display: flex;
-      overflow-x: hidden;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-      touch-action: pan-y;
-    }
-
-    .rotate {
-      display: grid;
-      place-items: center;
-    }
-
-    .panel-card {
-      width: min(680px, 100%);
-      margin: auto;
-      text-align: center;
-    }
-
-    .kicker {
-      margin: 0 0 8px;
-      color: var(--orange);
-      font-size: clamp(.68rem, 1.6vw, .78rem);
-      font-weight: 900;
-      letter-spacing: .16em;
-      text-transform: uppercase;
-    }
-
-    .panel h1, .rotate h1 {
-      margin: 0;
-      font-size: clamp(2.25rem, min(10vw, 19vh), 6.2rem);
-      font-size: clamp(2.25rem, min(10vw, 19dvh), 6.2rem);
-      line-height: .88;
-      letter-spacing: -.065em;
-    }
-
-    .panel p, .rotate p {
-      max-width: 500px;
-      margin: 20px auto 0;
-      color: rgba(244, 241, 223, .66);
-      font-size: clamp(.9rem, 2vw, 1.08rem);
-      line-height: 1.5;
-    }
-
-    .control-options {
-      width: min(600px, 100%);
-      margin: 24px auto 0;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .control-option {
-      min-height: 92px;
-      padding: 15px 18px;
-      border: 2px solid var(--line);
-      border-radius: 18px;
-      background: rgba(244, 241, 223, .045);
-      color: var(--cream);
-      cursor: pointer;
-      text-align: left;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .control-option:first-child {
-      border-color: rgba(219, 255, 70, .65);
-      background: rgba(219, 255, 70, .1);
-    }
-
-    .control-option:last-child {
-      border-color: rgba(255, 104, 68, .65);
-      background: rgba(255, 104, 68, .09);
-    }
-
-    .control-option strong,
-    .control-option span { display: block; }
-
-    .control-option strong {
-      color: var(--cream);
-      font-size: .82rem;
-      font-weight: 950;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-
-    .control-option span {
-      margin-top: 7px;
-      color: rgba(244, 241, 223, .55);
-      font-size: .72rem;
-      font-weight: 650;
-      line-height: 1.35;
-    }
-
-    .control-option:focus-visible {
-      outline: 3px solid var(--cream);
-      outline-offset: 3px;
-    }
-
-    .control-option:active { transform: scale(.98); }
-
-    .control-error {
-      min-height: 1.3em;
-      margin: 12px auto 0 !important;
-      color: var(--orange) !important;
-      font-size: .76rem !important;
-      font-weight: 800;
-    }
-
-    .controls-note {
-      display: block;
-      margin-top: 20px;
-      color: rgba(244, 241, 223, .38);
-      font-size: .7rem;
-      font-weight: 700;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-
-    .rotate { text-align: center; }
-
-    .phone {
-      width: 84px;
-      height: 142px;
-      margin: 0 auto 26px;
-      border: 5px solid var(--lime);
-      border-radius: 17px;
-      position: relative;
-      animation: turn 1.9s ease-in-out infinite;
-    }
-
-    .phone::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      bottom: 7px;
-      width: 22px;
-      height: 4px;
-      border-radius: 9px;
-      transform: translateX(-50%);
-      background: var(--lime);
-    }
-
-    @keyframes turn {
-      0%, 20% { transform: rotate(0deg); }
-      65%, 100% { transform: rotate(90deg); }
-    }
-
-    @media (orientation: landscape) {
-      .rotate { display: none !important; }
-    }
-
-    @media (orientation: portrait) {
-      .rotate { display: grid; }
-    }
-
-    @media (max-height: 500px) and (orientation: landscape) {
-      .panel {
-        padding-top: max(10px, env(safe-area-inset-top));
-        padding-bottom: max(10px, env(safe-area-inset-bottom));
-      }
-
-      .panel-card {
-        display: grid;
-        grid-template-columns: minmax(125px, .7fr) minmax(0, 1.3fr);
-        grid-template-areas:
-          "kicker copy"
-          "title controls"
-          "title error"
-          "title note";
-        column-gap: clamp(14px, 4vw, 34px);
-        align-items: center;
-      }
-
-      .kicker { grid-area: kicker; margin-bottom: 5px; }
-      .panel h1 { grid-area: title; }
-      .intro-copy { grid-area: copy; margin: 0 !important; line-height: 1.35 !important; }
-      .control-options { grid-area: controls; margin: 8px 0 0; }
-      .control-option { min-height: 72px; padding: 10px 14px; }
-      .control-option span { margin-top: 4px; }
-      .control-error { grid-area: error; margin: 6px 0 0 !important; }
-      .controls-note { grid-area: note; margin-top: 5px; }
-    }
-
-    @media (max-width: 560px) and (orientation: portrait) {
-      .control-options { grid-template-columns: 1fr; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .phone { animation: none; transform: rotate(90deg); }
-    }
-  </style>
+  <link rel="stylesheet" href="tilt-rally.css">
 </head>
 <body>
   <canvas id="game" aria-label="Tilt Rally game area"></canvas>
 
   <div class="topbar" aria-live="polite">
     <div class="brand">Tilt Rally</div>
-    <div class="scores">
-      <div><span class="score-label">Rally</span><strong class="score-value" id="score">0</strong></div>
-      <div><span class="score-label">Best</span><strong class="score-value" id="best">0</strong></div>
+    <div class="scores" id="scores">
+      <div><span class="score-label" id="left-label">Rally</span><strong class="score-value" id="left-score">0</strong></div>
+      <div><span class="score-label" id="right-label">Best</span><strong class="score-value" id="right-score">0</strong></div>
     </div>
   </div>
 
   <a class="home" href="index.html">← Arcade</a>
-  <div class="status" id="status">Choose a control mode to start</div>
+  <div class="status" id="status">Choose a game mode</div>
   <button class="calibrate" id="calibrate" type="button" hidden>Centre tilt</button>
 
-  <section class="panel" id="intro" aria-labelledby="game-title">
+  <section class="panel" id="mode-panel" aria-labelledby="game-title">
     <div class="panel-card">
-      <p class="kicker">A one-phone reflex game</p>
+      <p class="kicker">One court. Two ways to play.</p>
       <h1 id="game-title">TILT.<br>CATCH. DING.</h1>
-      <p class="intro-copy">Move both paddles with your phone's tilt, or drag them with a finger. Every catch builds your rally.</p>
-      <div class="control-options" role="group" aria-label="Choose a control mode">
-        <button class="control-option" id="start-motion" type="button">
-          <strong>Play with tilt</strong>
-          <span>Move both paddles by tilting your phone up and down.</span>
-        </button>
-        <button class="control-option" id="start-touch" type="button">
-          <strong>Play with touch</strong>
-          <span>Drag a finger up and down anywhere on the game.</span>
-        </button>
+      <p>Keep the rally alive by yourself, or face a friend online in a first-to-seven match.</p>
+      <div class="choice-grid">
+        <button class="choice lime" id="solo-mode" type="button"><strong>Solo Rally</strong><span>One device controls both paddles.</span></button>
+        <button class="choice orange" id="versus-mode" type="button"><strong>Online Versus</strong><span>Create or join a private two-player room.</span></button>
       </div>
-      <p class="control-error" id="control-error" role="status" aria-live="polite"></p>
-      <span class="controls-note">Landscape required · Sound on · Arrow keys work on desktop</span>
     </div>
   </section>
 
-  <section class="rotate" id="rotate" aria-label="Rotate your phone">
-    <div>
-      <div class="phone" aria-hidden="true"></div>
-      <h1>TURN<br>SIDEWAYS</h1>
-      <p>Tilt Rally needs the extra room. Rotate your phone to landscape to play.</p>
+  <section class="panel" id="solo-controls" hidden>
+    <div class="panel-card">
+      <p class="kicker">Solo rally</p><h1>CHOOSE<br>CONTROL.</h1>
+      <p>Move both paddles with your phone's tilt, or drag them with a finger.</p>
+      <div class="choice-grid">
+        <button class="choice lime" data-solo-control="motion"><strong>Play with tilt</strong><span>Tilt your phone up and down.</span></button>
+        <button class="choice orange" data-solo-control="touch"><strong>Play with touch</strong><span>Drag anywhere on the court.</span></button>
+      </div>
+      <p class="error" id="solo-error" role="status"></p>
+      <button class="text-button" data-back="mode-panel">← Game modes</button>
     </div>
   </section>
 
-  <script>
-    (() => {
-      'use strict';
+  <section class="panel" id="online-panel" hidden>
+    <div class="panel-card compact">
+      <p class="kicker">Online versus</p><h1>PRIVATE<br>COURT.</h1>
+      <div id="online-unavailable" class="notice" hidden>
+        Online play needs Supabase configuration. Copy <code>supabase-config.example.js</code> to <code>supabase-config.js</code> and add your project values.
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab active" id="create-tab" type="button">Create room</button>
+        <button class="tab" id="join-tab" type="button">Join room</button>
+      </div>
+      <form id="room-form" class="room-form">
+        <label>Your name<input id="player-name" maxlength="20" autocomplete="nickname" required></label>
+        <label id="code-field" hidden>Room code<input id="room-code" maxlength="6" autocapitalize="characters" autocomplete="off"></label>
+        <label>Room password<input id="room-password" type="password" minlength="4" maxlength="64" autocomplete="new-password" required></label>
+        <button class="primary" id="room-submit" type="submit">Create private room</button>
+      </form>
+      <p class="error" id="room-error" role="status" aria-live="polite"></p>
+      <button class="text-button" data-back="mode-panel">← Game modes</button>
+    </div>
+  </section>
 
-      const canvas = document.getElementById('game');
-      const ctx = canvas.getContext('2d');
-      const intro = document.getElementById('intro');
-      const motionButton = document.getElementById('start-motion');
-      const touchButton = document.getElementById('start-touch');
-      const controlError = document.getElementById('control-error');
-      const calibrateButton = document.getElementById('calibrate');
-      const scoreNode = document.getElementById('score');
-      const bestNode = document.getElementById('best');
-      const statusNode = document.getElementById('status');
+  <section class="panel" id="lobby-panel" hidden>
+    <div class="panel-card compact">
+      <p class="kicker">Room <button class="room-code" id="lobby-code" title="Copy room code"></button></p>
+      <h1>READY<br>UP.</h1>
+      <div class="players" id="players"></div>
+      <p class="section-label">Your control</p>
+      <div class="segmented">
+        <button type="button" data-online-control="motion">Tilt</button>
+        <button type="button" data-online-control="touch">Touch</button>
+      </div>
+      <button class="primary" id="ready-button" type="button" disabled>Choose a control</button>
+      <button class="primary start" id="start-button" type="button" hidden disabled>Start match</button>
+      <p class="error" id="lobby-error" role="status" aria-live="polite"></p>
+      <button class="text-button" id="leave-button" type="button">Leave room</button>
+    </div>
+  </section>
 
-      const state = {
-        width: 0,
-        height: 0,
-        dpr: 1,
-        running: false,
-        controlMode: null,
-        paddleY: .5,
-        targetY: .5,
-        baseline: null,
-        orientationValue: null,
-        lastTime: 0,
-        rally: 0,
-        best: readBest(),
-        flash: 0,
-        shake: 0,
-        audio: null,
-        orientationListening: false,
-        ball: { x: .5, y: .5, vx: .42, vy: .16, radius: 10 },
-      };
+  <section class="panel overlay" id="result-panel" hidden>
+    <div class="panel-card">
+      <p class="kicker">Match complete</p><h1 id="result-title">YOU WIN!</h1>
+      <p id="result-copy"></p>
+      <button class="primary" id="rematch-button" type="button">Ready for rematch</button>
+      <button class="text-button" id="result-leave" type="button">Leave room</button>
+    </div>
+  </section>
 
-      bestNode.textContent = state.best;
+  <div class="countdown" id="countdown" hidden></div>
+  <section class="rotate" id="rotate" aria-label="Rotate your phone" hidden>
+    <div><div class="phone" aria-hidden="true"></div><h1>TURN<br>SIDEWAYS</h1><p>Tilt Rally needs the extra room. Rotate your phone to landscape to play.</p></div>
+  </section>
 
-      function resize() {
-        const viewport = window.visualViewport;
-        const viewportWidth = viewport ? viewport.width : window.innerWidth;
-        const viewportHeight = viewport ? viewport.height : window.innerHeight;
-
-        state.dpr = Math.min(window.devicePixelRatio || 1, 2);
-        state.width = Math.max(1, Math.round(viewportWidth));
-        state.height = Math.max(1, Math.round(viewportHeight));
-        document.documentElement.style.setProperty('--app-width', state.width + 'px');
-        document.documentElement.style.setProperty('--app-height', state.height + 'px');
-        canvas.width = Math.round(state.width * state.dpr);
-        canvas.height = Math.round(state.height * state.dpr);
-        canvas.style.width = state.width + 'px';
-        canvas.style.height = state.height + 'px';
-        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-        state.ball.radius = Math.max(7, Math.min(12, state.height * .028));
-      }
-
-      function orientationAxis(event) {
-        const rawAngle = screen.orientation && Number.isFinite(screen.orientation.angle)
-          ? screen.orientation.angle
-          : (Number(window.orientation) || 0);
-        const angle = ((rawAngle % 360) + 360) % 360;
-        if (angle === 90 || angle === 270) {
-          return (event.gamma || 0) * (angle === 90 ? -1 : 1);
-        }
-        return event.beta || 0;
-      }
-
-      function onOrientation(event) {
-        if (state.controlMode !== 'motion') return;
-        const value = orientationAxis(event);
-        if (!Number.isFinite(value)) return;
-        state.orientationValue = value;
-        if (state.baseline === null) state.baseline = value;
-        const delta = value - state.baseline;
-        state.targetY = clamp(.5 + delta / 42, .08, .92);
-      }
-
-      function resetBall(direction = Math.random() > .5 ? 1 : -1) {
-        state.ball.x = .5;
-        state.ball.y = .28 + Math.random() * .44;
-        state.ball.vx = direction * (.39 + Math.min(state.rally, 16) * .008);
-        state.ball.vy = (Math.random() * .22 + .1) * (Math.random() > .5 ? 1 : -1);
-      }
-
-      function updateScore() {
-        scoreNode.textContent = state.rally;
-        if (state.rally > state.best) {
-          state.best = state.rally;
-          bestNode.textContent = state.best;
-          saveBest(state.best);
-        }
-      }
-
-      function ding() {
-        if (!state.audio) return;
-        const now = state.audio.currentTime;
-        const osc = state.audio.createOscillator();
-        const gain = state.audio.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(740, now);
-        osc.frequency.exponentialRampToValueAtTime(1120, now + .06);
-        gain.gain.setValueAtTime(.0001, now);
-        gain.gain.exponentialRampToValueAtTime(.18, now + .008);
-        gain.gain.exponentialRampToValueAtTime(.0001, now + .14);
-        osc.connect(gain).connect(state.audio.destination);
-        osc.start(now);
-        osc.stop(now + .15);
-      }
-
-      function miss() {
-        if (navigator.vibrate) navigator.vibrate(45);
-        state.shake = .24;
-        state.rally = 0;
-        updateScore();
-        resetBall(state.ball.vx > 0 ? -1 : 1);
-      }
-
-      function hit(side) {
-        const speed = Math.min(.58, Math.abs(state.ball.vx) + .012);
-        state.ball.vx = side === 'left' ? speed : -speed;
-        const paddleCentre = state.paddleY;
-        const offset = (state.ball.y - paddleCentre) / .16;
-        state.ball.vy = clamp(state.ball.vy + offset * .2, -.5, .5);
-        state.ball.x = side === 'left' ? .052 : .948;
-        state.rally += 1;
-        state.flash = .18;
-        updateScore();
-        ding();
-      }
-
-      function update(dt) {
-        if (!state.running || state.height > state.width) return;
-        const smoothing = 1 - Math.pow(.001, dt);
-        state.paddleY += (state.targetY - state.paddleY) * smoothing;
-
-        const b = state.ball;
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
-
-        const radiusY = b.radius / state.height;
-        if (b.y - radiusY < .055) {
-          b.y = .055 + radiusY;
-          b.vy = Math.abs(b.vy);
-        } else if (b.y + radiusY > .945) {
-          b.y = .945 - radiusY;
-          b.vy = -Math.abs(b.vy);
-        }
-
-        const paddleHalf = Math.max(.09, Math.min(.17, 50 / state.height));
-        const withinPaddle = Math.abs(b.y - state.paddleY) <= paddleHalf + radiusY;
-        if (b.vx < 0 && b.x <= .052 && b.x > -.02 && withinPaddle) hit('left');
-        if (b.vx > 0 && b.x >= .948 && b.x < 1.02 && withinPaddle) hit('right');
-        if (b.x < -.04 || b.x > 1.04) miss();
-
-        state.flash = Math.max(0, state.flash - dt);
-        state.shake = Math.max(0, state.shake - dt);
-      }
-
-      function roundRect(x, y, width, height, radius) {
-        const r = Math.min(radius, width / 2, height / 2);
-        ctx.beginPath();
-        ctx.roundRect(x, y, width, height, r);
-      }
-
-      function draw() {
-        const w = state.width;
-        const h = state.height;
-        const shakeX = state.shake > 0 ? (Math.random() - .5) * 10 : 0;
-        const shakeY = state.shake > 0 ? (Math.random() - .5) * 7 : 0;
-
-        ctx.save();
-        ctx.translate(shakeX, shakeY);
-        ctx.fillStyle = state.flash > 0 ? '#181a10' : '#10110d';
-        ctx.fillRect(-12, -12, w + 24, h + 24);
-
-        ctx.strokeStyle = 'rgba(244, 241, 223, .075)';
-        ctx.lineWidth = 1;
-        const gap = Math.max(35, Math.floor(h / 8));
-        for (let y = gap; y < h; y += gap) {
-          ctx.beginPath();
-          ctx.moveTo(0, y + .5);
-          ctx.lineTo(w, y + .5);
-          ctx.stroke();
-        }
-
-        ctx.setLineDash([7, 12]);
-        ctx.strokeStyle = 'rgba(244, 241, 223, .16)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(w / 2, h * .08);
-        ctx.lineTo(w / 2, h * .92);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        const paddleW = Math.max(11, Math.min(17, w * .018));
-        const paddleH = Math.max(64, Math.min(112, h * .27));
-        const paddleY = state.paddleY * h - paddleH / 2;
-        const inset = Math.max(22, Math.min(48, w * .045));
-
-        ctx.shadowColor = 'rgba(219, 255, 70, .34)';
-        ctx.shadowBlur = 22;
-        ctx.fillStyle = '#dbff46';
-        roundRect(inset, paddleY, paddleW, paddleH, paddleW / 2);
-        ctx.fill();
-        roundRect(w - inset - paddleW, paddleY, paddleW, paddleH, paddleW / 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        const ballX = state.ball.x * w;
-        const ballY = state.ball.y * h;
-        const gradient = ctx.createRadialGradient(ballX - 3, ballY - 4, 1, ballX, ballY, state.ball.radius);
-        gradient.addColorStop(0, '#fffce9');
-        gradient.addColorStop(1, '#ff6844');
-        ctx.fillStyle = gradient;
-        ctx.shadowColor = 'rgba(255, 104, 68, .55)';
-        ctx.shadowBlur = 18;
-        ctx.beginPath();
-        ctx.arc(ballX, ballY, state.ball.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        ctx.restore();
-      }
-
-      function frame(time) {
-        const dt = Math.min(.032, (time - state.lastTime) / 1000 || 0);
-        state.lastTime = time;
-        update(dt);
-        draw();
-        requestAnimationFrame(frame);
-      }
-
-      function setTouchPosition(clientY) {
-        const canvasTop = canvas.getBoundingClientRect().top;
-        state.targetY = clamp((clientY - canvasTop) / state.height, .08, .92);
-        statusNode.textContent = 'Touch control active';
-      }
-
-      async function enableMotion() {
-        if (typeof DeviceOrientationEvent === 'undefined') return false;
-        try {
-          if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            return (await DeviceOrientationEvent.requestPermission()) === 'granted';
-          }
-          return true;
-        } catch (error) {
-          return false;
-        }
-      }
-
-      async function enterImmersiveMode() {
-        try {
-          if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
-            await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-          }
-          if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-        } catch (error) {
-          // Browsers may require the person to rotate manually; the overlay explains this.
-        }
-        resize();
-      }
-
-      async function begin(controlMode) {
-        controlError.textContent = '';
-
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextClass) {
-          state.audio = state.audio || new AudioContextClass();
-          if (state.audio.state === 'suspended') state.audio.resume().catch(() => {});
-        }
-
-        if (controlMode === 'motion' && !(await enableMotion())) {
-          controlError.textContent = 'Motion access is unavailable. Choose touch control instead.';
-          return;
-        }
-
-        state.controlMode = controlMode;
-        if (controlMode === 'motion' && !state.orientationListening) {
-          window.addEventListener('deviceorientation', onOrientation, true);
-          state.orientationListening = true;
-        }
-        calibrateButton.hidden = controlMode !== 'motion';
-        statusNode.textContent = controlMode === 'motion'
-          ? 'Tilt to move the paddles'
-          : 'Drag anywhere to move';
-
-        state.running = true;
-        state.baseline = controlMode === 'motion' ? state.orientationValue : null;
-        state.paddleY = .5;
-        state.targetY = .5;
-        state.rally = 0;
-        updateScore();
-        resetBall();
-        intro.hidden = true;
-        enterImmersiveMode();
-      }
-
-      function clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
-      }
-
-      function readBest() {
-        try {
-          return Number(localStorage.getItem('tilt-rally-best') || 0);
-        } catch (error) {
-          return 0;
-        }
-      }
-
-      function saveBest(value) {
-        try {
-          localStorage.setItem('tilt-rally-best', String(value));
-        } catch (error) {
-          // The game still works when storage is unavailable (for example, private browsing).
-        }
-      }
-
-      motionButton.addEventListener('click', () => begin('motion'));
-      touchButton.addEventListener('click', () => begin('touch'));
-      calibrateButton.addEventListener('click', () => {
-        if (state.controlMode !== 'motion') return;
-        state.baseline = state.orientationValue;
-        state.targetY = .5;
-        statusNode.textContent = 'Centred';
-      });
-
-      let activePointerId = null;
-      canvas.addEventListener('pointerdown', event => {
-        if (!state.running || state.controlMode !== 'touch') return;
-        activePointerId = event.pointerId;
-        canvas.setPointerCapture(event.pointerId);
-        setTouchPosition(event.clientY);
-      });
-      canvas.addEventListener('pointermove', event => {
-        if (event.pointerId === activePointerId) setTouchPosition(event.clientY);
-      });
-      canvas.addEventListener('pointerup', event => {
-        if (event.pointerId === activePointerId) activePointerId = null;
-      });
-      canvas.addEventListener('pointercancel', event => {
-        if (event.pointerId === activePointerId) activePointerId = null;
-      });
-      window.addEventListener('keydown', event => {
-        if (!state.running) return;
-        if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w') {
-          state.targetY = clamp(state.targetY - .08, .08, .92);
-          event.preventDefault();
-        }
-        if (event.key === 'ArrowDown' || event.key.toLowerCase() === 's') {
-          state.targetY = clamp(state.targetY + .08, .08, .92);
-          event.preventDefault();
-        }
-      });
-      window.addEventListener('resize', resize);
-      if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
-      window.addEventListener('orientationchange', () => {
-        state.baseline = null;
-        setTimeout(resize, 120);
-      });
-      document.addEventListener('visibilitychange', () => {
-        state.lastTime = performance.now();
-      });
-
-      resize();
-      resetBall();
-      requestAnimationFrame(frame);
-    })();
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script type="module" src="tilt-rally.js"></script>
 </body>
 </html>

@@ -1,0 +1,30 @@
+{
+  "name": "Brain Arcade",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "Brain Arcade",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "postCreateCommand": "npm install",
+  "remoteUser": "node",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "stylelint.vscode-stylelint",
+        "ms-playwright.playwright"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "eslint.useFlatConfig": true,
+        "stylelint.validate": ["css"]
+      }
+    }
+  }
+}
