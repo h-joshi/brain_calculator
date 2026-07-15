@@ -28,9 +28,9 @@
     <div class="panel-card">
       <p class="kicker">One court. Two ways to play.</p>
       <h1 id="game-title">TILT.<br>CATCH. DING.</h1>
-      <p>Keep the rally alive by yourself, or face a friend online across custom rounds and games.</p>
+      <p>Take on the computer offline, or face a friend online across custom rounds and games.</p>
       <div class="choice-grid">
-        <button class="choice lime" id="solo-mode" type="button"><strong>Solo Rally</strong><span>One device controls both paddles.</span></button>
+        <button class="choice lime" id="solo-mode" type="button"><strong>Solo Rally</strong><span>Play an offline match against the computer.</span></button>
         <button class="choice orange" id="versus-mode" type="button"><strong>Online Versus</strong><span>Create or join a private two-player room.</span></button>
       </div>
     </div>
@@ -38,11 +38,17 @@
 
   <section class="panel" id="solo-controls" hidden>
     <div class="panel-card">
-      <p class="kicker">Solo rally</p><h1>CHOOSE<br>CONTROL.</h1>
-      <p>Choose your match format, then move both paddles with tilt or touch.</p>
+      <p class="kicker">Solo rally</p><h1>TAKE ON<br>THE COMPUTER.</h1>
+      <p>Choose a difficulty and match format, then defend your paddle with tilt or touch.</p>
       <div class="match-format" id="solo-format">
         <label>Rounds<select id="solo-rounds" aria-label="Solo rounds"></select></label>
         <label>Games per round<select id="solo-games" aria-label="Solo games per round"></select></label>
+      </div>
+      <p class="section-label">Computer difficulty</p>
+      <div class="segmented" role="group" aria-label="Computer difficulty">
+        <button type="button" data-solo-difficulty="easy" aria-pressed="false">Easy</button>
+        <button type="button" data-solo-difficulty="medium" aria-pressed="true">Medium</button>
+        <button type="button" data-solo-difficulty="hard" aria-pressed="false">Hard</button>
       </div>
       <div class="choice-grid">
         <button class="choice lime" data-solo-control="motion"><strong>Play with tilt</strong><span>Tilt your phone up and down.</span></button>

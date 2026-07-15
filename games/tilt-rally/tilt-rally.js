@@ -5,6 +5,11 @@ const panels = [...document.querySelectorAll('.panel')];
 const DEFAULT_FORMAT = { rounds: 1, games: 10 };
 const BASE_BALL_SPEED = .39;
 const BASE_BALL_SPEED_CAP = .58;
+const SOLO_DIFFICULTIES = {
+  easy: { reaction: .42, speed: 1.7, error: .12, missChance: .32 },
+  medium: { reaction: .2, speed: 3.1, error: .055, missChance: .1 },
+  hard: { reaction: .09, speed: 4.7, error: .022, missChance: .025 },
+};
 const ui = {
   status: $('status'), calibrate: $('calibrate'), leftLabel: $('left-label'), rightLabel: $('right-label'),
   leftScore: $('left-score'), rightScore: $('right-score'), tally: $('match-tally'), roomError: $('room-error'), lobbyError: $('lobby-error'),
@@ -18,6 +23,7 @@ const game = {
   baseline: null, orientationValue: null, orientationListening: false,
   ball: { x: .5, y: .5, vx: .42, vy: .16, radius: 10 },
   rally: 0, best: readBest(), format: { ...DEFAULT_FORMAT },
+  soloDifficulty: 'medium', ai: { targetY: .5, reactionClock: 0, miss: false },
   match: newMatchState(), matchId: null,
   lastTime: 0, flash: 0, shake: 0, audio: null, snapshotClock: 0, sequence: 0, lastSequence: -1,
 };
@@ -132,9 +138,9 @@ function gameText() { return `${game.match.games.left + game.match.games.right}/
 
 function updateScoreboard() {
   if (game.mode === 'solo') {
-    ui.leftLabel.textContent = 'Rally'; ui.rightLabel.textContent = 'Best';
-    ui.leftScore.textContent = game.rally; ui.rightScore.textContent = game.best;
-    ui.tally.textContent = `Round ${roundText()} · Games ${gameText()}`;
+    ui.leftLabel.textContent = 'You'; ui.rightLabel.textContent = 'Computer';
+    ui.leftScore.textContent = game.match.games.left; ui.rightScore.textContent = game.match.games.right;
+    ui.tally.textContent = `Round ${roundText()} · Games ${gameText()} · Rounds ${game.match.rounds.left}–${game.match.rounds.right}`;
     return;
   }
   const left = online.players.find(p => p.side === 'left'), right = online.players.find(p => p.side === 'right');
@@ -153,16 +159,19 @@ function nextRoundOrFinish() {
   return null;
 }
 
-function completeSoloGame() {
-  game.match.games.left += 1; game.match.totals.left += 1;
-  if (game.match.games.left >= game.format.games) {
-    game.match.round += 1; game.match.games = { left: 0, right: 0 };
-    if (game.match.round > game.format.rounds) { finishSolo(); return; }
-  }
-  game.rally = 0; updateScoreboard(); resetBall(game.ball.vx > 0 ? -1 : 1);
+function soloMiss(missedSide) {
+  if (game.phase !== 'playing') return;
+  game.phase = 'transition';
+  const scorer = missedSide === 'left' ? 'right' : 'left';
+  game.match.games[scorer] += 1; game.match.totals[scorer] += 1;
+  game.shake = .24;
+  if (missedSide === 'left') navigator.vibrate?.(45);
+  let winner = null;
+  if (game.match.games.left + game.match.games.right >= game.format.games && game.match.games.left !== game.match.games.right) winner = nextRoundOrFinish();
+  updateScoreboard();
+  if (winner) { showResult(winner); return; }
+  resetBall(missedSide === 'left' ? 1 : -1); game.phase = 'playing';
 }
-
-function soloMiss() { navigator.vibrate?.(45); game.shake = .24; completeSoloGame(); }
 
 async function persistMatchState() {
   const m = game.match;
@@ -193,14 +202,33 @@ function hit(side) {
   const offset = (game.ball.y - game.paddle[side]) / .16;
   game.ball.vy = clamp(game.ball.vy + offset * .2, -.5, .5);
   game.ball.x = side === 'left' ? .052 : .948; game.flash = .18; ding();
-  if (game.mode === 'solo') { game.rally += 1; if (game.rally > game.best) { game.best = game.rally; saveBest(game.best); } updateScoreboard(); }
+  if (game.mode === 'solo') { game.rally += 1; if (game.rally > game.best) { game.best = game.rally; saveBest(game.best); } }
+}
+
+function updateComputer(dt) {
+  const profile = SOLO_DIFFICULTIES[game.soloDifficulty];
+  const ai = game.ai;
+  ai.reactionClock -= dt;
+  if (ai.reactionClock <= 0) {
+    ai.reactionClock = profile.reaction;
+    if (game.ball.vx > 0) {
+      ai.miss = Math.random() < profile.missChance;
+      const missOffset = ai.miss ? (game.ball.y < .5 ? .32 : -.32) : 0;
+      ai.targetY = clamp(game.ball.y + (Math.random() - .5) * profile.error + missOffset, .08, .92);
+    } else {
+      ai.miss = false;
+      ai.targetY = .5 + (Math.random() - .5) * profile.error;
+    }
+  }
+  const smoothing = 1 - Math.exp(-profile.speed * dt);
+  game.paddle.right += (ai.targetY - game.paddle.right) * smoothing;
 }
 
 function update(dt) {
   if (game.phase !== 'playing' || game.height > game.width) return;
   const smoothing = 1 - Math.pow(.001, dt);
   game.paddle[game.localSide] += (game.targetY - game.paddle[game.localSide]) * smoothing;
-  if (game.mode === 'solo') game.paddle.right = game.paddle.left;
+  if (game.mode === 'solo') updateComputer(dt);
   if (game.mode === 'online' && !isHost()) return;
   const b = game.ball; b.x += b.vx * dt; b.y += b.vy * dt;
   const radiusY = b.radius / game.height;
@@ -209,8 +237,8 @@ function update(dt) {
   const paddleHalf = Math.max(.09, Math.min(.17, 50 / game.height));
   if (b.vx < 0 && b.x <= .052 && b.x > -.02 && Math.abs(b.y - game.paddle.left) <= paddleHalf + radiusY) hit('left');
   if (b.vx > 0 && b.x >= .948 && b.x < 1.02 && Math.abs(b.y - game.paddle.right) <= paddleHalf + radiusY) hit('right');
-  if (b.x < -.04) game.mode === 'solo' ? soloMiss() : multiplayerMiss('left');
-  if (b.x > 1.04) game.mode === 'solo' ? soloMiss() : multiplayerMiss('right');
+  if (b.x < -.04) game.mode === 'solo' ? soloMiss('left') : multiplayerMiss('left');
+  if (b.x > 1.04) game.mode === 'solo' ? soloMiss('right') : multiplayerMiss('right');
   game.flash = Math.max(0, game.flash - dt); game.shake = Math.max(0, game.shake - dt);
   if (game.mode === 'online') {
     game.snapshotClock += dt;
@@ -227,9 +255,9 @@ function draw() {
   ctx.setLineDash([7, 12]); ctx.strokeStyle = 'rgba(244,241,223,.16)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(w / 2, h * .08); ctx.lineTo(w / 2, h * .92); ctx.stroke(); ctx.setLineDash([]);
   const pw = Math.max(11, Math.min(17, w * .018)), ph = Math.max(64, Math.min(112, h * .27)), inset = Math.max(22, Math.min(48, w * .045));
   for (const side of ['left', 'right']) {
-    const x = side === 'left' ? inset : w - inset - pw, local = game.mode !== 'online' || side === game.localSide;
+    const x = side === 'left' ? inset : w - inset - pw, local = side === game.localSide;
     ctx.shadowColor = side === 'left' ? 'rgba(219,255,70,.4)' : 'rgba(255,104,68,.4)'; ctx.shadowBlur = local ? 25 : 10;
-    ctx.fillStyle = side === 'left' ? '#dbff46' : game.mode === 'online' ? '#ff6844' : '#dbff46';
+    ctx.fillStyle = side === 'left' ? '#dbff46' : '#ff6844';
     if (!local) ctx.globalAlpha = .7; roundRect(x, game.paddle[side] * h - ph / 2, pw, ph, pw / 2); ctx.fill(); ctx.globalAlpha = 1;
   }
   ctx.shadowBlur = 0; const bx = game.ball.x * w, by = game.ball.y * h, grad = ctx.createRadialGradient(bx - 3, by - 4, 1, bx, by, game.ball.radius);
@@ -248,15 +276,9 @@ async function beginSolo(control) {
 function startSoloMatch() {
   game.format = formatFromInputs($('solo-rounds'), $('solo-games')); game.match = newMatchState();
   game.mode = 'solo'; game.phase = 'playing'; game.localSide = 'left'; game.paddle.left = game.paddle.right = game.targetY = .5; game.rally = 0;
+  game.ai = { targetY: .5, reactionClock: 0, miss: false };
   startAudio(); updateScoreboard(); resetBall(); hidePanels(); $('rotate').hidden = false;
-  ui.status.textContent = game.control === 'motion' ? 'Tilt to move both paddles' : 'Drag anywhere to move'; enterImmersive();
-}
-
-function finishSolo() {
-  game.phase = 'finished'; $('rotate').hidden = true;
-  $('result-title').textContent = 'ROUND SET COMPLETE!';
-  $('result-copy').textContent = `${game.format.rounds} round${game.format.rounds === 1 ? '' : 's'} · ${game.match.totals.left} games · Best rally ${game.best}`;
-  $('rematch-button').disabled = false; $('rematch-button').textContent = 'Play again'; showPanel('result-panel');
+  ui.status.textContent = game.control === 'motion' ? 'Tilt to defend your paddle' : 'Drag anywhere to defend'; enterImmersive();
 }
 
 function configuredClient() {
@@ -429,7 +451,7 @@ function showResult(winner) {
   game.phase = 'finished'; $('rotate').hidden = true;
   $('result-title').textContent = winner === game.localSide ? 'YOU WIN!' : 'GOOD GAME.';
   $('result-copy').textContent = `${game.match.rounds.left}–${game.match.rounds.right} rounds · ${game.match.totals.left}–${game.match.totals.right} games · ${winner === 'left' ? ui.leftLabel.textContent : ui.rightLabel.textContent} wins`;
-  $('rematch-button').disabled = false; $('rematch-button').textContent = 'Ready for rematch'; showPanel('result-panel');
+  $('rematch-button').disabled = false; $('rematch-button').textContent = game.mode === 'solo' ? 'Play again' : 'Ready for rematch'; showPanel('result-panel');
 }
 
 async function rematch() {
@@ -494,10 +516,19 @@ async function restoreSession() {
 }
 
 populateFormatSelects();
+function selectSoloDifficulty(difficulty) {
+  game.soloDifficulty = SOLO_DIFFICULTIES[difficulty] ? difficulty : 'medium';
+  document.querySelectorAll('[data-solo-difficulty]').forEach(button => {
+    const selected = button.dataset.soloDifficulty === game.soloDifficulty;
+    button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected));
+  });
+}
+selectSoloDifficulty('medium');
 $('solo-mode').addEventListener('click', () => showPanel('solo-controls'));
 $('versus-mode').addEventListener('click', () => { showPanel('online-panel'); if (!online.client) $('online-unavailable').hidden = false; });
 document.querySelectorAll('[data-back]').forEach(button => button.addEventListener('click', () => showPanel(button.dataset.back)));
 document.querySelectorAll('[data-solo-control]').forEach(button => button.addEventListener('click', () => beginSolo(button.dataset.soloControl)));
+document.querySelectorAll('[data-solo-difficulty]').forEach(button => button.addEventListener('click', () => selectSoloDifficulty(button.dataset.soloDifficulty)));
 document.querySelectorAll('[data-online-control]').forEach(button => button.addEventListener('click', () => selectOnlineControl(button.dataset.onlineControl)));
 ui.onlineRounds.addEventListener('change', setOnlineFormat); ui.onlineGames.addEventListener('change', setOnlineFormat);
 $('create-tab').addEventListener('click', () => setJoinMode('create')); $('join-tab').addEventListener('click', () => setJoinMode('join'));
