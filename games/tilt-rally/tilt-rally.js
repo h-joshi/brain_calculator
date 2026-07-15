@@ -2,10 +2,14 @@ const $ = id => document.getElementById(id);
 const canvas = $('game');
 const ctx = canvas.getContext('2d');
 const panels = [...document.querySelectorAll('.panel')];
+const DEFAULT_FORMAT = { rounds: 1, games: 10 };
+const BASE_BALL_SPEED = .39;
+const BASE_BALL_SPEED_CAP = .58;
 const ui = {
   status: $('status'), calibrate: $('calibrate'), leftLabel: $('left-label'), rightLabel: $('right-label'),
-  leftScore: $('left-score'), rightScore: $('right-score'), roomError: $('room-error'), lobbyError: $('lobby-error'),
+  leftScore: $('left-score'), rightScore: $('right-score'), tally: $('match-tally'), roomError: $('room-error'), lobbyError: $('lobby-error'),
   players: $('players'), ready: $('ready-button'), start: $('start-button'), countdown: $('countdown'),
+  onlineRounds: $('online-rounds'), onlineGames: $('online-games'), onlineFormatNote: $('online-format-note'),
 };
 
 const game = {
@@ -13,7 +17,8 @@ const game = {
   localSide: 'left', paddle: { left: .5, right: .5 }, targetY: .5,
   baseline: null, orientationValue: null, orientationListening: false,
   ball: { x: .5, y: .5, vx: .42, vy: .16, radius: 10 },
-  rally: 0, best: readBest(), score: { left: 0, right: 0 },
+  rally: 0, best: readBest(), format: { ...DEFAULT_FORMAT },
+  match: newMatchState(), matchId: null,
   lastTime: 0, flash: 0, shake: 0, audio: null, snapshotClock: 0, sequence: 0, lastSequence: -1,
 };
 
@@ -22,13 +27,37 @@ const online = {
   selectedControl: null, selectedRoomCode: null, presence: new Set(), poll: null, disconnectTimer: null,
 };
 
-function showPanel(id) {
-  panels.forEach(panel => { panel.hidden = panel.id !== id; });
+function newMatchState(values = {}) {
+  return {
+    round: Number(values.current_round ?? values.round ?? 1),
+    games: { left: Number(values.left_round_games ?? values.games?.left ?? 0), right: Number(values.right_round_games ?? values.games?.right ?? 0) },
+    rounds: { left: Number(values.left_rounds_won ?? values.rounds?.left ?? 0), right: Number(values.right_rounds_won ?? values.rounds?.right ?? 0) },
+    totals: { left: Number(values.left_score ?? values.totals?.left ?? 0), right: Number(values.right_score ?? values.totals?.right ?? 0) },
+  };
 }
 
+function validFormat(rounds, games) {
+  return Number.isInteger(rounds) && Number.isInteger(games) && rounds >= 1 && rounds <= 10 && games >= 1 && games <= 10;
+}
+
+function formatFromInputs(roundsInput, gamesInput) {
+  const rounds = Number(roundsInput.value), games = Number(gamesInput.value);
+  return validFormat(rounds, games) ? { rounds, games } : { ...DEFAULT_FORMAT };
+}
+
+function populateFormatSelects() {
+  const options = Array.from({ length: 10 }, (_, index) => `<option value="${index + 1}">${index + 1}</option>`).join('');
+  ['solo-rounds', 'solo-games', 'online-rounds', 'online-games'].forEach(id => { $(id).innerHTML = options; });
+  $('solo-rounds').value = DEFAULT_FORMAT.rounds; $('solo-games').value = DEFAULT_FORMAT.games;
+  ui.onlineRounds.value = DEFAULT_FORMAT.rounds; ui.onlineGames.value = DEFAULT_FORMAT.games;
+}
+
+function showPanel(id) { panels.forEach(panel => { panel.hidden = panel.id !== id; }); }
 function hidePanels() { panels.forEach(panel => { panel.hidden = true; }); }
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function randomToken() { return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`; }
+function currentSpeedMultiplier() { return clamp(1 + (game.match.round - 1) * (.5 / game.format.rounds), 1, 1.5); }
+function currentSpeedCap() { return BASE_BALL_SPEED_CAP * currentSpeedMultiplier(); }
 
 function resize() {
   const viewport = window.visualViewport;
@@ -64,14 +93,9 @@ async function enableControl(control) {
     try {
       if (typeof DeviceOrientationEvent.requestPermission === 'function' && await DeviceOrientationEvent.requestPermission() !== 'granted') throw new Error();
     } catch { throw new Error('Motion permission was not granted. Choose touch control instead.'); }
-    if (!game.orientationListening) {
-      window.addEventListener('deviceorientation', onOrientation, true);
-      game.orientationListening = true;
-    }
+    if (!game.orientationListening) { window.addEventListener('deviceorientation', onOrientation, true); game.orientationListening = true; }
   }
-  game.control = control;
-  game.baseline = control === 'motion' ? game.orientationValue : null;
-  ui.calibrate.hidden = control !== 'motion';
+  game.control = control; game.baseline = control === 'motion' ? game.orientationValue : null; ui.calibrate.hidden = control !== 'motion';
 }
 
 async function enterImmersive() {
@@ -99,38 +123,72 @@ function ding() {
 
 function resetBall(direction = Math.random() > .5 ? 1 : -1) {
   game.ball.x = .5; game.ball.y = .28 + Math.random() * .44;
-  const level = game.mode === 'solo' ? game.rally : game.score.left + game.score.right;
-  game.ball.vx = direction * (.39 + Math.min(level, 16) * .008);
+  game.ball.vx = direction * BASE_BALL_SPEED * currentSpeedMultiplier();
   game.ball.vy = (Math.random() * .22 + .1) * (Math.random() > .5 ? 1 : -1);
 }
+
+function roundText() { return game.match.round > game.format.rounds ? `Decider ${game.match.round - game.format.rounds}` : `${game.match.round}/${game.format.rounds}`; }
+function gameText() { return `${game.match.games.left + game.match.games.right}/${game.format.games}`; }
 
 function updateScoreboard() {
   if (game.mode === 'solo') {
     ui.leftLabel.textContent = 'Rally'; ui.rightLabel.textContent = 'Best';
     ui.leftScore.textContent = game.rally; ui.rightScore.textContent = game.best;
-  } else {
-    const left = online.players.find(p => p.side === 'left'), right = online.players.find(p => p.side === 'right');
-    ui.leftLabel.textContent = left?.display_name || 'Host'; ui.rightLabel.textContent = right?.display_name || 'Guest';
-    ui.leftScore.textContent = game.score.left; ui.rightScore.textContent = game.score.right;
+    ui.tally.textContent = `Round ${roundText()} · Games ${gameText()}`;
+    return;
   }
+  const left = online.players.find(p => p.side === 'left'), right = online.players.find(p => p.side === 'right');
+  ui.leftLabel.textContent = left?.display_name || 'Host'; ui.rightLabel.textContent = right?.display_name || 'Guest';
+  ui.leftScore.textContent = game.match.games.left; ui.rightScore.textContent = game.match.games.right;
+  ui.tally.textContent = `Round ${roundText()} · Games ${gameText()} · Rounds ${game.match.rounds.left}–${game.match.rounds.right}`;
 }
 
-function soloMiss() {
-  navigator.vibrate?.(45); game.shake = .24; game.rally = 0; updateScoreboard();
-  resetBall(game.ball.vx > 0 ? -1 : 1);
+function nextRoundOrFinish() {
+  const roundWinner = game.match.games.left > game.match.games.right ? 'left' : 'right';
+  game.match.rounds[roundWinner] += 1;
+  const scheduledComplete = game.match.round >= game.format.rounds;
+  const matchWinner = game.match.rounds.left === game.match.rounds.right ? null : game.match.rounds.left > game.match.rounds.right ? 'left' : 'right';
+  if (scheduledComplete && matchWinner) return matchWinner;
+  game.match.round += 1; game.match.games = { left: 0, right: 0 };
+  return null;
 }
 
-function multiplayerMiss(missedSide) {
-  if (!isHost()) return;
+function completeSoloGame() {
+  game.match.games.left += 1; game.match.totals.left += 1;
+  if (game.match.games.left >= game.format.games) {
+    game.match.round += 1; game.match.games = { left: 0, right: 0 };
+    if (game.match.round > game.format.rounds) { finishSolo(); return; }
+  }
+  game.rally = 0; updateScoreboard(); resetBall(game.ball.vx > 0 ? -1 : 1);
+}
+
+function soloMiss() { navigator.vibrate?.(45); game.shake = .24; completeSoloGame(); }
+
+async function persistMatchState() {
+  const m = game.match;
+  await rpc('update_tilt_match_progress', {
+    p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token,
+    p_left_score: m.totals.left, p_right_score: m.totals.right, p_current_round: m.round,
+    p_left_round_games: m.games.left, p_right_round_games: m.games.right,
+    p_left_rounds_won: m.rounds.left, p_right_rounds_won: m.rounds.right,
+  });
+}
+
+async function multiplayerMiss(missedSide) {
+  if (!isHost() || game.phase !== 'playing') return;
+  game.phase = 'transition';
   const scorer = missedSide === 'left' ? 'right' : 'left';
-  game.score[scorer] += 1; game.shake = .24; updateScoreboard();
-  rpc('score_tilt_match', { p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token, p_left_score: game.score.left, p_right_score: game.score.right }).catch(() => {});
-  if (game.score[scorer] >= 7) finishMatch(scorer);
-  else resetBall(missedSide === 'left' ? 1 : -1);
+  game.match.games[scorer] += 1; game.match.totals[scorer] += 1; game.shake = .24;
+  let winner = null;
+  if (game.match.games.left + game.match.games.right >= game.format.games && game.match.games.left !== game.match.games.right) winner = nextRoundOrFinish();
+  updateScoreboard();
+  try { await persistMatchState(); } catch { /* The next score/reconnect will retry against the host's state. */ }
+  if (winner) { await finishMatch(winner); return; }
+  resetBall(missedSide === 'left' ? 1 : -1); game.phase = 'playing';
 }
 
 function hit(side) {
-  const speed = Math.min(.58, Math.abs(game.ball.vx) + .012);
+  const speed = Math.min(currentSpeedCap(), Math.abs(game.ball.vx) + .012);
   game.ball.vx = side === 'left' ? speed : -speed;
   const offset = (game.ball.y - game.paddle[side]) / .16;
   game.ball.vy = clamp(game.ball.vy + offset * .2, -.5, .5);
@@ -184,8 +242,21 @@ function frame(time) { const dt = Math.min(.032, (time - game.lastTime) / 1000 |
 async function beginSolo(control) {
   $('solo-error').textContent = '';
   try { await enableControl(control); } catch (error) { $('solo-error').textContent = error.message; return; }
-  startAudio(); game.mode = 'solo'; game.phase = 'playing'; game.localSide = 'left'; game.paddle.left = game.paddle.right = game.targetY = .5; game.rally = 0;
-  updateScoreboard(); resetBall(); hidePanels(); $('rotate').hidden = false; ui.status.textContent = control === 'motion' ? 'Tilt to move both paddles' : 'Drag anywhere to move'; enterImmersive();
+  startSoloMatch();
+}
+
+function startSoloMatch() {
+  game.format = formatFromInputs($('solo-rounds'), $('solo-games')); game.match = newMatchState();
+  game.mode = 'solo'; game.phase = 'playing'; game.localSide = 'left'; game.paddle.left = game.paddle.right = game.targetY = .5; game.rally = 0;
+  startAudio(); updateScoreboard(); resetBall(); hidePanels(); $('rotate').hidden = false;
+  ui.status.textContent = game.control === 'motion' ? 'Tilt to move both paddles' : 'Drag anywhere to move'; enterImmersive();
+}
+
+function finishSolo() {
+  game.phase = 'finished'; $('rotate').hidden = true;
+  $('result-title').textContent = 'ROUND SET COMPLETE!';
+  $('result-copy').textContent = `${game.format.rounds} round${game.format.rounds === 1 ? '' : 's'} · ${game.match.totals.left} games · Best rally ${game.best}`;
+  $('rematch-button').disabled = false; $('rematch-button').textContent = 'Play again'; showPanel('result-panel');
 }
 
 function configuredClient() {
@@ -200,10 +271,7 @@ async function rpc(name, args) {
   if (error) throw new Error(error.message.replace(/^.*?: /, ''));
   return data;
 }
-
-function saveSession() {
-  sessionStorage.setItem('tilt-rally-room', JSON.stringify({ room: online.room, player: online.player }));
-}
+function saveSession() { sessionStorage.setItem('tilt-rally-room', JSON.stringify({ room: online.room, player: online.player })); }
 function clearSession() { sessionStorage.removeItem('tilt-rally-room'); }
 
 async function createOrJoin(event) {
@@ -216,15 +284,13 @@ async function createOrJoin(event) {
     const data = online.joinMode === 'create'
       ? await rpc('create_tilt_room', { p_display_name: name, p_password: password, p_player_token: token })
       : await rpc('join_tilt_room', { p_room_code: online.selectedRoomCode, p_display_name: name, p_password: password, p_player_token: token });
-    online.room = data.room; online.player = { ...data.player, token, channel_secret: data.channel_secret }; saveSession();
-    await connectRoom();
-  } catch (error) { ui.roomError.textContent = friendlyError(error); }
-  finally { $('room-submit').disabled = false; }
+    online.room = data.room; online.player = { ...data.player, token, channel_secret: data.channel_secret }; saveSession(); await connectRoom();
+  } catch (error) { ui.roomError.textContent = friendlyError(error); } finally { $('room-submit').disabled = false; }
 }
 
 function friendlyError(error) {
   const message = error.message || String(error);
-  const known = { INVALID_PASSWORD: 'That password is incorrect.', ROOM_FULL: 'That room already has two players.', ROOM_NOT_FOUND: 'Room not found or expired.', ROOM_IN_PROGRESS: 'That room has already started.', DUPLICATE_NAME: 'That name is already in use.', NOT_HOST: 'Only the host can start the match.', NOT_READY: 'Both players must be connected and ready.' };
+  const known = { INVALID_PASSWORD: 'That password is incorrect.', ROOM_FULL: 'That room already has two players.', ROOM_NOT_FOUND: 'Room not found or expired.', ROOM_IN_PROGRESS: 'That room has already started.', DUPLICATE_NAME: 'That name is already in use.', NOT_HOST: 'Only the host can start the match.', NOT_READY: 'Both players must be connected and ready.', INVALID_FORMAT: 'Choose between 1 and 10 rounds and games.' };
   return known[Object.keys(known).find(key => message.includes(key))] || message;
 }
 
@@ -233,13 +299,9 @@ async function connectRoom() {
   const topic = `tilt-room:${online.player.channel_secret}`;
   if (online.channel) await online.client.removeChannel(online.channel);
   online.channel = online.client.channel(topic, { config: { presence: { key: online.player.id }, broadcast: { self: false } } });
-  online.channel.on('presence', { event: 'sync' }, syncPresence)
-    .on('broadcast', { event: 'message' }, ({ payload }) => receive(payload))
-    .subscribe(async status => {
-      if (status === 'SUBSCRIBED') {
-        await online.channel.track({ player_id: online.player.id, at: Date.now() }); await refreshRoom();
-      }
-    });
+  online.channel.on('presence', { event: 'sync' }, syncPresence).on('broadcast', { event: 'message' }, ({ payload }) => receive(payload)).subscribe(async status => {
+    if (status === 'SUBSCRIBED') { await online.channel.track({ player_id: online.player.id, at: Date.now() }); await refreshRoom(); }
+  });
   clearInterval(online.poll); online.poll = setInterval(refreshRoom, 5000);
 }
 
@@ -263,9 +325,9 @@ async function recoverMatch(match) {
   const me = online.players.find(p => p.id === online.player.id);
   if (!me?.control_mode) return;
   try { await enableControl(me.control_mode); } catch (error) { ui.lobbyError.textContent = `${error.message} Select your control again to resume.`; return; }
+  game.format = { rounds: Number(match.round_count), games: Number(match.games_per_round) }; game.match = newMatchState(match);
   startAudio(); game.mode = 'online'; game.phase = 'playing'; game.localSide = me.side; game.matchId = match.id;
-  game.score = { left: match.left_score, right: match.right_score }; game.paddle.left = game.paddle.right = game.targetY = .5;
-  resetBall(me.side === 'left' ? 1 : -1); updateScoreboard(); hidePanels(); $('rotate').hidden = false;
+  game.paddle.left = game.paddle.right = game.targetY = .5; resetBall(me.side === 'left' ? 1 : -1); updateScoreboard(); hidePanels(); $('rotate').hidden = false;
   ui.status.textContent = 'Reconnected · match resumed'; enterImmersive();
 }
 
@@ -276,39 +338,47 @@ function renderLobby() {
     return `<div class="player-card ${local ? 'local' : ''}"><strong>${p ? escapeHtml(p.display_name) : 'Waiting…'}</strong><span><i class="dot ${connected ? 'online' : ''}"></i>${p ? (connected ? 'Connected' : 'Reconnecting') : 'Open slot'} · ${p?.control_mode || 'No control'} · ${p?.ready ? 'Ready' : 'Not ready'}</span></div>`;
   }).join('');
   const me = online.players.find(p => p.id === online.player.id), both = online.players.length === 2 && online.players.every(p => p.ready && online.presence.has(p.id));
+  const roomFormat = { rounds: Number(online.room.round_count || 1), games: Number(online.room.games_per_round || 10) };
+  ui.onlineRounds.value = roomFormat.rounds; ui.onlineGames.value = roomFormat.games;
+  const host = isHost(); ui.onlineRounds.disabled = !host; ui.onlineGames.disabled = !host;
+  ui.onlineFormatNote.textContent = host ? 'Changing the format makes both players ready up again.' : `Host selected ${roomFormat.rounds} round${roomFormat.rounds === 1 ? '' : 's'} × ${roomFormat.games} games.`;
   if (me) { online.selectedControl = me.control_mode; document.querySelectorAll('[data-online-control]').forEach(b => b.classList.toggle('selected', b.dataset.onlineControl === me.control_mode)); }
   ui.ready.disabled = !online.selectedControl; ui.ready.textContent = me?.ready ? 'Not ready' : online.selectedControl ? 'Ready up' : 'Choose a control';
-  ui.start.hidden = online.player.side !== 'left'; ui.start.disabled = !both;
+  ui.start.hidden = !host; ui.start.disabled = !both;
+}
+
+async function setOnlineFormat() {
+  if (!isHost()) return;
+  const format = formatFromInputs(ui.onlineRounds, ui.onlineGames); ui.lobbyError.textContent = '';
+  try {
+    await rpc('set_tilt_room_format', { p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token, p_round_count: format.rounds, p_games_per_round: format.games });
+    await refreshRoom(); broadcast('lobby_changed', {});
+  } catch (error) { ui.lobbyError.textContent = friendlyError(error); await refreshRoom(); }
 }
 
 async function selectOnlineControl(control) {
   ui.lobbyError.textContent = '';
-  try { await enableControl(control); online.selectedControl = control; await setReady(false, control); }
-  catch (error) { ui.lobbyError.textContent = error.message; }
+  try { await enableControl(control); online.selectedControl = control; await setReady(false, control); } catch (error) { ui.lobbyError.textContent = error.message; }
 }
-
 async function setReady(ready, control = online.selectedControl) {
   await rpc('set_tilt_player_ready', { p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token, p_control_mode: control, p_ready: ready });
   await refreshRoom(); broadcast('lobby_changed', {});
 }
-
-async function toggleReady() {
-  const me = online.players.find(p => p.id === online.player.id);
-  try { await setReady(!me?.ready); } catch (error) { ui.lobbyError.textContent = friendlyError(error); }
-}
-
+async function toggleReady() { const me = online.players.find(p => p.id === online.player.id); try { await setReady(!me?.ready); } catch (error) { ui.lobbyError.textContent = friendlyError(error); } }
 function isHost() { return online.player?.side === 'left'; }
+
 async function startOnlineMatch() {
   ui.lobbyError.textContent = '';
   try {
     startAudio(); const data = await rpc('start_tilt_match', { p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token });
-    online.room = data.room; game.sequence = 0; await broadcast('countdown', { starts_at: Date.now() + 3200, match_id: data.match_id }); beginCountdown(Date.now() + 3200, data.match_id);
+    online.room = data.room; game.sequence = 0; await broadcast('countdown', { starts_at: Date.now() + 3200, match: data.match }); beginCountdown(Date.now() + 3200, data.match);
   } catch (error) { ui.lobbyError.textContent = friendlyError(error); }
 }
 
-function beginCountdown(startsAt, matchId) {
-  hidePanels(); $('rotate').hidden = false; game.mode = 'online'; game.phase = 'countdown'; game.localSide = online.player.side; game.matchId = matchId;
-  game.score = { left: 0, right: 0 }; game.paddle.left = game.paddle.right = game.targetY = .5; resetBall(1); updateScoreboard(); enterImmersive();
+function beginCountdown(startsAt, match) {
+  hidePanels(); $('rotate').hidden = false; game.mode = 'online'; game.phase = 'countdown'; game.localSide = online.player.side; game.matchId = match.id;
+  game.format = { rounds: Number(match.round_count), games: Number(match.games_per_round) }; game.match = newMatchState(match);
+  game.paddle.left = game.paddle.right = game.targetY = .5; resetBall(1); updateScoreboard(); enterImmersive();
   const tick = () => {
     const remaining = startsAt - Date.now();
     if (remaining <= 0) {
@@ -320,20 +390,21 @@ function beginCountdown(startsAt, matchId) {
   }; tick();
 }
 
-function snapshot() { return { ball: game.ball, paddle: game.paddle, score: game.score, phase: game.phase }; }
+function snapshot() { return { ball: game.ball, paddle: game.paddle, match: game.match, format: game.format, phase: game.phase }; }
 async function broadcast(type, data) {
   if (!online.channel) return;
-  await online.channel.send({ type: 'broadcast', event: 'message', payload: { v: 1, type, room_id: online.room.id, match_id: game.matchId || null, seq: ++game.sequence, sent_at: Date.now(), ...data } });
+  await online.channel.send({ type: 'broadcast', event: 'message', payload: { v: 2, type, room_id: online.room.id, match_id: game.matchId || null, seq: ++game.sequence, sent_at: Date.now(), ...data } });
 }
 
 function receive(message) {
-  if (!message || message.v !== 1 || message.room_id !== online.room.id) return;
+  if (!message || message.v !== 2 || message.room_id !== online.room.id) return;
   if (message.type === 'lobby_changed') { refreshRoom(); return; }
-  if (message.type === 'countdown') { if (!isHost()) beginCountdown(message.starts_at, message.match_id); return; }
+  if (message.type === 'countdown') { if (!isHost()) beginCountdown(message.starts_at, message.match); return; }
   if (message.match_id && game.matchId && message.match_id !== game.matchId) return;
   if (message.type === 'paddle_input' && isHost() && message.side === 'right') game.paddle.right = clamp(message.y, .08, .92);
   if (message.type === 'game_snapshot' && !isHost() && message.seq > game.lastSequence) {
-    game.lastSequence = message.seq; Object.assign(game.ball, message.ball); game.paddle.left = message.paddle.left; game.score = message.score; updateScoreboard();
+    game.lastSequence = message.seq; Object.assign(game.ball, message.ball); game.paddle.left = message.paddle.left; game.paddle.right = message.paddle.right;
+    game.match = newMatchState(message.match); game.format = message.format; updateScoreboard();
   }
   if (message.type === 'match_paused') { game.phase = 'paused'; ui.status.textContent = 'Opponent disconnected · waiting 30 seconds'; }
   if (message.type === 'match_resumed') { game.phase = 'playing'; ui.status.textContent = 'Match resumed'; }
@@ -347,19 +418,22 @@ function setLocalTarget(y) {
 }
 
 async function finishMatch(winner) {
-  game.phase = 'finished'; await rpc('finish_tilt_match', { p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token, p_winner_side: winner, p_left_score: game.score.left, p_right_score: game.score.right }).catch(() => {});
-  await broadcast('match_finished', { winner, score: game.score }); showResult(winner);
+  game.phase = 'finished';
+  try {
+    await rpc('finish_tilt_match', { p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token, p_winner_side: winner, p_left_score: game.match.totals.left, p_right_score: game.match.totals.right });
+  } catch { /* The local result remains visible; room recovery retains the committed state. */ }
+  await broadcast('match_finished', { winner }); showResult(winner);
 }
 
 function showResult(winner) {
-  game.phase = 'finished'; game.score = game.score || { left: 0, right: 0 };
-  $('rotate').hidden = true;
+  game.phase = 'finished'; $('rotate').hidden = true;
   $('result-title').textContent = winner === game.localSide ? 'YOU WIN!' : 'GOOD GAME.';
-  $('result-copy').textContent = `${game.score.left}–${game.score.right} · ${winner === 'left' ? ui.leftLabel.textContent : ui.rightLabel.textContent} wins`;
+  $('result-copy').textContent = `${game.match.rounds.left}–${game.match.rounds.right} rounds · ${game.match.totals.left}–${game.match.totals.right} games · ${winner === 'left' ? ui.leftLabel.textContent : ui.rightLabel.textContent} wins`;
   $('rematch-button').disabled = false; $('rematch-button').textContent = 'Ready for rematch'; showPanel('result-panel');
 }
 
 async function rematch() {
+  if (game.mode === 'solo') { startSoloMatch(); return; }
   $('rematch-button').disabled = true;
   try { await rpc('reset_tilt_room', { p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token }); game.matchId = null; game.phase = 'idle'; await refreshRoom(); await setReady(true); showPanel('lobby-panel'); broadcast('lobby_changed', {}); }
   catch (error) { $('result-copy').textContent = friendlyError(error); $('rematch-button').disabled = false; }
@@ -380,7 +454,6 @@ async function leaveRoom() {
   try { await rpc('leave_tilt_room', { p_room_id: online.room.id, p_player_id: online.player.id, p_player_token: online.player.token }); if (wasHost) await broadcast('room_closed', {}); else await broadcast('lobby_changed', {}); } catch { /* Local leave still succeeds. */ }
   await resetOnline(); $('rotate').hidden = true; showPanel('mode-panel'); game.mode = null; game.phase = 'idle'; ui.status.textContent = 'Choose a game mode';
 }
-
 async function resetOnline() {
   clearInterval(online.poll); clearTimeout(online.disconnectTimer);
   if (online.channel && online.client) await online.client.removeChannel(online.channel);
@@ -390,41 +463,26 @@ async function resetOnline() {
 function escapeHtml(value) { const div = document.createElement('div'); div.textContent = value; return div.innerHTML; }
 function readBest() { try { return Number(localStorage.getItem('tilt-rally-best') || 0); } catch { return 0; } }
 function saveBest(value) { try { localStorage.setItem('tilt-rally-best', String(value)); } catch { /* Optional storage. */ } }
-
 function setJoinMode(mode) {
   online.joinMode = mode; $('create-tab').classList.toggle('active', mode === 'create'); $('join-tab').classList.toggle('active', mode === 'join');
   $('room-browser').hidden = mode === 'create'; $('room-submit').textContent = mode === 'create' ? 'Create private room' : 'Select a room';
-  $('room-submit').disabled = !online.client || (mode === 'join' && !online.selectedRoomCode);
-  $('room-password').autocomplete = mode === 'create' ? 'new-password' : 'current-password'; ui.roomError.textContent = '';
+  $('room-submit').disabled = !online.client || (mode === 'join' && !online.selectedRoomCode); $('room-password').autocomplete = mode === 'create' ? 'new-password' : 'current-password'; ui.roomError.textContent = '';
   if (mode === 'join') refreshRooms();
 }
-
 async function refreshRooms() {
-  const list = $('room-list'), refresh = $('refresh-rooms');
-  online.selectedRoomCode = null; $('room-submit').disabled = true; refresh.disabled = true;
+  const list = $('room-list'), refresh = $('refresh-rooms'); online.selectedRoomCode = null; $('room-submit').disabled = true; refresh.disabled = true;
   list.innerHTML = '<p class="room-list-status">Looking for rooms…</p>';
   try {
     const rooms = await rpc('list_tilt_rooms', {});
-    if (!rooms.length) {
-      list.innerHTML = '<p class="room-list-status">No rooms are waiting. Refresh or create one.</p>';
-      return;
-    }
+    if (!rooms.length) { list.innerHTML = '<p class="room-list-status">No rooms are waiting. Refresh or create one.</p>'; return; }
     list.innerHTML = rooms.map(room => `<button class="room-option" type="button" role="radio" aria-checked="false" data-room-code="${escapeHtml(room.code)}"><span><strong>${escapeHtml(room.host_name)}</strong><small>Room ${escapeHtml(room.code)}</small></span><span class="room-space">${room.player_count}/2 players</span></button>`).join('');
-  } catch (error) {
-    list.innerHTML = `<p class="room-list-status error">${escapeHtml(friendlyError(error))}</p>`;
-  } finally { refresh.disabled = false; }
+  } catch (error) { list.innerHTML = `<p class="room-list-status error">${escapeHtml(friendlyError(error))}</p>`; } finally { refresh.disabled = false; }
 }
-
 function selectRoom(button) {
   online.selectedRoomCode = button.dataset.roomCode;
-  document.querySelectorAll('.room-option').forEach(option => {
-    const selected = option === button;
-    option.classList.toggle('selected', selected); option.setAttribute('aria-checked', String(selected));
-  });
-  $('room-submit').disabled = false; $('room-submit').textContent = `Join room ${online.selectedRoomCode}`;
-  ui.roomError.textContent = '';
+  document.querySelectorAll('.room-option').forEach(option => { const selected = option === button; option.classList.toggle('selected', selected); option.setAttribute('aria-checked', String(selected)); });
+  $('room-submit').disabled = false; $('room-submit').textContent = `Join room ${online.selectedRoomCode}`; ui.roomError.textContent = '';
 }
-
 async function restoreSession() {
   let saved; try { saved = JSON.parse(sessionStorage.getItem('tilt-rally-room')); } catch { return; }
   if (!saved?.room || !saved?.player || !online.client) return;
@@ -435,11 +493,13 @@ async function restoreSession() {
   } catch { clearSession(); online.room = online.player = null; }
 }
 
+populateFormatSelects();
 $('solo-mode').addEventListener('click', () => showPanel('solo-controls'));
 $('versus-mode').addEventListener('click', () => { showPanel('online-panel'); if (!online.client) $('online-unavailable').hidden = false; });
 document.querySelectorAll('[data-back]').forEach(button => button.addEventListener('click', () => showPanel(button.dataset.back)));
 document.querySelectorAll('[data-solo-control]').forEach(button => button.addEventListener('click', () => beginSolo(button.dataset.soloControl)));
 document.querySelectorAll('[data-online-control]').forEach(button => button.addEventListener('click', () => selectOnlineControl(button.dataset.onlineControl)));
+ui.onlineRounds.addEventListener('change', setOnlineFormat); ui.onlineGames.addEventListener('change', setOnlineFormat);
 $('create-tab').addEventListener('click', () => setJoinMode('create')); $('join-tab').addEventListener('click', () => setJoinMode('join'));
 $('refresh-rooms').addEventListener('click', refreshRooms); $('room-form').addEventListener('submit', createOrJoin); ui.ready.addEventListener('click', toggleReady); ui.start.addEventListener('click', startOnlineMatch);
 $('room-list').addEventListener('click', event => { const option = event.target.closest('.room-option'); if (option) selectRoom(option); });
@@ -454,9 +514,7 @@ canvas.addEventListener('pointerup', event => { if (event.pointerId === pointerI
 canvas.addEventListener('pointercancel', event => { if (event.pointerId === pointerId) pointerId = null; });
 window.addEventListener('keydown', event => { if (game.phase !== 'playing') return; const key = event.key.toLowerCase(); if (event.key === 'ArrowUp' || key === 'w') { setLocalTarget(clamp(game.targetY - .08, .08, .92)); event.preventDefault(); } if (event.key === 'ArrowDown' || key === 's') { setLocalTarget(clamp(game.targetY + .08, .08, .92)); event.preventDefault(); } });
 window.addEventListener('resize', resize); window.visualViewport?.addEventListener('resize', resize);
-window.addEventListener('orientationchange', () => { game.baseline = null; setTimeout(resize, 120); });
-document.addEventListener('visibilitychange', () => { game.lastTime = performance.now(); });
-
+window.addEventListener('orientationchange', () => { game.baseline = null; setTimeout(resize, 120); }); document.addEventListener('visibilitychange', () => { game.lastTime = performance.now(); });
 online.client = configuredClient();
 if (!online.client) { $('online-unavailable').hidden = false; $('room-submit').disabled = true; }
 resize(); resetBall(); updateScoreboard(); requestAnimationFrame(frame); restoreSession();

@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#10110d">
   <title>Tilt Rally · Brain Arcade</title>
   <link rel="stylesheet" href="tilt-rally.css">
+  <link rel="stylesheet" href="rounds.css">
 </head>
 <body>
   <canvas id="game" aria-label="Tilt Rally game area"></canvas>
@@ -15,6 +16,7 @@
     <div class="scores" id="scores">
       <div><span class="score-label" id="left-label">Rally</span><strong class="score-value" id="left-score">0</strong></div>
       <div><span class="score-label" id="right-label">Best</span><strong class="score-value" id="right-score">0</strong></div>
+      <div class="match-tally" id="match-tally">Round 1/1 · Games 0/10</div>
     </div>
   </div>
 
@@ -26,7 +28,7 @@
     <div class="panel-card">
       <p class="kicker">One court. Two ways to play.</p>
       <h1 id="game-title">TILT.<br>CATCH. DING.</h1>
-      <p>Keep the rally alive by yourself, or face a friend online in a first-to-seven match.</p>
+      <p>Keep the rally alive by yourself, or face a friend online across custom rounds and games.</p>
       <div class="choice-grid">
         <button class="choice lime" id="solo-mode" type="button"><strong>Solo Rally</strong><span>One device controls both paddles.</span></button>
         <button class="choice orange" id="versus-mode" type="button"><strong>Online Versus</strong><span>Create or join a private two-player room.</span></button>
@@ -37,7 +39,11 @@
   <section class="panel" id="solo-controls" hidden>
     <div class="panel-card">
       <p class="kicker">Solo rally</p><h1>CHOOSE<br>CONTROL.</h1>
-      <p>Move both paddles with your phone's tilt, or drag them with a finger.</p>
+      <p>Choose your match format, then move both paddles with tilt or touch.</p>
+      <div class="match-format" id="solo-format">
+        <label>Rounds<select id="solo-rounds" aria-label="Solo rounds"></select></label>
+        <label>Games per round<select id="solo-games" aria-label="Solo games per round"></select></label>
+      </div>
       <div class="choice-grid">
         <button class="choice lime" data-solo-control="motion"><strong>Play with tilt</strong><span>Tilt your phone up and down.</span></button>
         <button class="choice orange" data-solo-control="touch"><strong>Play with touch</strong><span>Drag anywhere on the court.</span></button>
@@ -79,6 +85,12 @@
       <p class="kicker">Room <button class="room-code" id="lobby-code" title="Copy room code"></button></p>
       <h1>READY<br>UP.</h1>
       <div class="players" id="players"></div>
+      <p class="section-label">Match format</p>
+      <div class="match-format" id="online-format">
+        <label>Rounds<select id="online-rounds" aria-label="Online rounds"></select></label>
+        <label>Games per round<select id="online-games" aria-label="Online games per round"></select></label>
+      </div>
+      <p class="format-note" id="online-format-note"></p>
       <p class="section-label">Your control</p>
       <div class="segmented">
         <button type="button" data-online-control="motion">Tilt</button>

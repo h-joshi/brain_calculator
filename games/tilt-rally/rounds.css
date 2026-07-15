@@ -1,0 +1,7 @@
+.scores{position:relative;padding-bottom:18px}
+.match-tally{position:absolute;right:0;bottom:0;color:rgba(244,241,223,.5);font-size:clamp(.5rem,1vw,.62rem);font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.match-format{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 12px;text-align:left}
+.match-format label{color:rgba(244,241,223,.55);font-size:.67rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.match-format select{width:100%;margin-top:6px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(244,241,223,.07);color:var(--cream);font:inherit;font-size:.9rem}
+.match-format select:disabled{opacity:.62}
+.format-note{margin:0!important;color:rgba(244,241,223,.5)!important;font-size:.7rem!important}
